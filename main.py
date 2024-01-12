@@ -3,6 +3,7 @@ import numpy as np
 from PIL import Image
 from tqdm import tqdm
 import torch.nn as nn
+import argparse
 from torch import optim
 import matplotlib.pyplot as plt
 import skimage.transform as transform
@@ -100,9 +101,14 @@ class Model(nn.Module):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='parameters')
+    parser.add_argument('--task', type=str, default='denoise')
+    parser.add_argument('--name', type=str, default='f16')
+    parser.add_argument('--address', type=str, default='./data/denoising/F16_GT.png')
+    args = parser.parse_args()
     model = Model()
     optimizer = optim.Adam(model.parameters(), lr=0.01)
-    image = Image.open('data/denoising/F16_GT.png')
+    image = Image.open(args.address)
     w, h = image.size
     image = image.resize((512, 512), resample=Image.LANCZOS)
     image = torch.from_numpy(np.array(image) / 255.0).unsqueeze(0).float()
@@ -126,6 +132,7 @@ if __name__ == "__main__":
                               preserve_range=True, 
                               anti_aliasing=True)
     plt.imshow(corr_img)
+    plt.imsave(f'./Imgs/{args.name}_input.png', corr_img)
     plt.title('Input', fontsize=15)
     plt.subplot(1, 3, 2)
     pred=transform.resize(img_pred[0].transpose(0, 1).transpose(1, 2).data.numpy(), 
@@ -135,6 +142,7 @@ if __name__ == "__main__":
                             preserve_range=True, 
                             anti_aliasing=True)
     plt.imshow(pred)
+    plt.imsave(f'./Imgs/{args.name}_{args.task}.png', pred)
     plt.title('Prediction', fontsize=15)
     plt.subplot(1, 3, 3)
     origin=transform.resize(image[0].data.numpy(),
@@ -144,5 +152,6 @@ if __name__ == "__main__":
                             preserve_range=True, 
                             anti_aliasing=True)
     plt.imshow(origin)
+    plt.imsave(f'./Imgs/{args.name}_gt.png', origin)
     plt.title('Ground truth', fontsize=15)
-    plt.savefig('Imgs/deep_image_prior.png')
+    plt.savefig(f'Imgs/{args.name}.png')
