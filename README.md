@@ -1,11 +1,16 @@
 # CV FINAL PROJECT  
 ### Gongle Xue, Yifeng Xu, Yang Li  
-#### Theme:Image Deep Prior
+### Theme:Deep Image Prior
 #### Begin
+We recommend you to use anaconda3.  
 ```shell
 cd CV-FINAL
 pip install -r requirements.txt
-python main.py --task=denoise --name=snail --address=./data/denoising/snail.jpg 
+```
+
+#### Denoising
+```
+python main.py --task=denoise --name=snail --address=./data/denoising/snail.jpg --epoch=2400
 ```
 
 ### Reference:

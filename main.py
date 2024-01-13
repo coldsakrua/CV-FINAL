@@ -105,6 +105,8 @@ if __name__ == "__main__":
     parser.add_argument('--task', type=str, default='denoise')
     parser.add_argument('--name', type=str, default='f16')
     parser.add_argument('--address', type=str, default='./data/denoising/F16_GT.png')
+    parser.add_argument('--mask_address', type=str, default='./data/inpainting/kate_mask.png')
+    parser.add_argument('--epoch',type=int,default='2400')
     args = parser.parse_args()
     model = Model()
     optimizer = optim.Adam(model.parameters(), lr=0.01)
@@ -112,13 +114,30 @@ if __name__ == "__main__":
     w, h = image.size
     image = image.resize((512, 512), resample=Image.LANCZOS)
     image = torch.from_numpy(np.array(image) / 255.0).unsqueeze(0).float()
-    corrupted_img = (image + torch.randn_like(image) * .1).clip(0, 1)
-    corrupted_img = corrupted_img.transpose(2, 3).transpose(1, 2)
-    z = torch.randn(corrupted_img.shape) * .1
+    if args.task == 'denoise':
+        loss_fn = torch.nn.MSELoss()
+        corrupted_img = (image + torch.randn_like(image) * .1).clip(0, 1)
+        corrupted_img = corrupted_img.transpose(2, 3).transpose(1, 2)
+        z = torch.randn(corrupted_img.shape) * .1
+    elif args.task == 'inpaint':
+        loss_fn = torch.nn.MSELoss()
+        mask = Image.open(args.mask_address)
+        mask = image.resize((512, 512), resample=Image.LANCZOS)
+        
+    elif args.task=='super':
+        loss_fn = torch.nn.MSELoss()
     # print(corrupted_img.shape)
-    for epoch in tqdm(range(2400)):
-        img_pred = model.forward(z)
-        loss = torch.nn.functional.mse_loss(img_pred, corrupted_img)
+    for epoch in tqdm(range(args.epoch)):
+        if args.task == 'denoise':
+            img_pred = model.forward(z)
+            loss = loss_fn(img_pred, corrupted_img)    
+        
+        if args.task == 'super':
+            pass
+        
+        elif args.task == 'inpaint':
+            pass
+        
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -132,7 +151,7 @@ if __name__ == "__main__":
                               preserve_range=True, 
                               anti_aliasing=True)
     plt.imshow(corr_img)
-    plt.imsave(f'./Imgs/{args.name}_input.png', corr_img)
+    plt.imsave(f'./Imgs/{args.name}_input{str(args.epoch)}.png', corr_img)
     plt.title('Input', fontsize=15)
     plt.subplot(1, 3, 2)
     pred=transform.resize(img_pred[0].transpose(0, 1).transpose(1, 2).data.numpy(), 
@@ -142,7 +161,7 @@ if __name__ == "__main__":
                             preserve_range=True, 
                             anti_aliasing=True)
     plt.imshow(pred)
-    plt.imsave(f'./Imgs/{args.name}_{args.task}.png', pred)
+    plt.imsave(f'./Imgs/{args.name}_{args.task}{str(args.epoch)}.png', pred)
     plt.title('Prediction', fontsize=15)
     plt.subplot(1, 3, 3)
     origin=transform.resize(image[0].data.numpy(),
