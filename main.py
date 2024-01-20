@@ -30,13 +30,13 @@ if __name__ == "__main__":
     if args.task == 'denoise':
         # print(image.shape)
         model = Model(image.shape[1], image.shape[2],input_channel=32).to(device)
-        optimizer = optim.Adam(model.parameters(), lr=0.025)
+        optimizer = optim.Adam(model.parameters(), lr=0.01)
         loss_fn = torch.nn.MSELoss()
         corrupted_img = (image + torch.randn_like(image) * .1).clip(0, 1)
         corrupted_img = corrupted_img.transpose(2, 3).transpose(1, 2)
-        z = torch.randn([1, 32, corrupted_img.shape[-2], corrupted_img.shape[-1]]) * .1
+        z = torch.rand([1, 32, corrupted_img.shape[-2], corrupted_img.shape[-1]]) * 0.1
         z = z.to(device)
-        
+        # model = Model(input_channel=32, w = corrupted_img.shape[-2],h=corrupted_img.shape[-1]).to(device)
         corrupted_img = corrupted_img.to(device)
     elif args.task == 'inpaint':
         loss_fn = torch.nn.MSELoss()
@@ -48,7 +48,9 @@ if __name__ == "__main__":
     # print(corrupted_img.shape)
     for epoch in tqdm(range(args.epoch)):
         if args.task == 'denoise':
-            img_pred = model.forward(z)
+            noise = torch.randn([1, 32, corrupted_img.shape[-2], corrupted_img.shape[-1]],device=device, requires_grad=True)/30
+            input = z + noise
+            img_pred = model.forward(input)
             loss = loss_fn(img_pred, corrupted_img)    
         
         if args.task == 'super':
@@ -97,3 +99,5 @@ if __name__ == "__main__":
     plt.imsave(f'./Imgs/{args.name}_gt.png', origin)
     plt.title('Ground truth', fontsize=15)
     plt.savefig(f'Imgs/{args.name}.png')
+    
+    # python main.py --task=denoise --name=f16 --address=./data/denoising/F16_GT.png --epoch=3000
