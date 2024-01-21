@@ -10,7 +10,7 @@ import skimage.transform as transform
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 from model import Model
-
+from sample import upsample,downsample
 
 
 if __name__ == "__main__":
@@ -27,10 +27,18 @@ if __name__ == "__main__":
     elif args.name == 'kate':
         address = './data/inpainting/kate.png'
         mask_address = './data/inpainting/kate_mask.png'
-    image = Image.open(address)
+    elif args.name == 'library':
+        address = './data/inpainting/library.png'
+        model_address = './data/inpainting/library_mask.png'
+    elif args.name == 'vase':
+        address = './data/inpainting/vase.png'
+        model_address = './data/inpainting/vase_mask.png'
+    elif args.name == 'zebra':
+        address = './data/sr/zebra_crop.png'
+        t = 4
+    image = Image.open(address, 'r')
     w, h = image.size
     image = image.resize((w - w % 32, h - h % 32), resample=Image.LANCZOS)
-    # image = image.resize((512, 512), resample=Image.LANCZOS)
     image = torch.from_numpy(np.array(image) / 255.0).unsqueeze(0).float()
     if args.task == 'denoise':
         # print(image.shape)
@@ -47,7 +55,7 @@ if __name__ == "__main__":
     elif args.task == 'inpaint':
         channels = 32
         loss_fn = torch.nn.MSELoss()
-        mask = Image.open(mask_address)
+        mask = Image.open(mask_address, 'r')
         mask = mask.resize((w - w % 32, h - h % 32), resample=Image.LANCZOS)
         mask = torch.from_numpy(np.array(mask) / 255.0).unsqueeze(0).float()
         img_with_mask = image * mask.transpose(0,1).transpose(1,2)
@@ -62,7 +70,15 @@ if __name__ == "__main__":
         
     elif args.task=='super':
         loss_fn = torch.nn.MSELoss()
-    # print(corrupted_img.shape)
+        channels = 32
+        model = Model(t * image.shape[1], t * image.shape[2], input_channel=channels).to(device)
+        corrupted_img = (image + torch.randn_like(image) * .1).clip(0, 1)
+        corrupted_img = corrupted_img.transpose(2, 3).transpose(1, 2).to(device)
+        z = torch.rand([1, channels, t * image.shape[1], t * image.shape[2]]) * 0.1
+        z = z.to(device)
+        corrupted_img = corrupted_img.to(device)
+        optimizer = optim.Adam(model.parameters(), lr=0.01)
+
     for epoch in tqdm(range(args.epoch)):
         if args.task == 'denoise':
             noise = torch.randn([1, channels, corrupted_img.shape[-2], corrupted_img.shape[-1]],device=device, requires_grad=True)/30
@@ -71,7 +87,13 @@ if __name__ == "__main__":
             loss = loss_fn(img_pred, corrupted_img)    
         
         elif args.task == 'super':
-            pass
+            noise = torch.randn(z.shape,device=device, requires_grad=True)/30
+            input = z + noise
+            # print(input.shape)
+            img_pred = model.forward(input)
+            pred = downsample(img_pred, (1, 3, image.shape[1], image.shape[2]), order=3, factor=t)
+            pred = torch.tensor(pred, device=device, requires_grad=True)
+            loss = loss_fn(pred, corrupted_img)
         
         elif args.task == 'inpaint':
             noise = torch.randn(z.shape,device=device, requires_grad=True)/30
@@ -83,25 +105,47 @@ if __name__ == "__main__":
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-
-    plt.figure(figsize=(18, 3.5))
-    plt.subplot(1, 3, 1)
-    corr_img=corrupted_img[0].cpu().transpose(0, 1).transpose(1, 2).data.numpy(), 
-    plt.imshow(corr_img[0])
-    # print(corr_img[0].shape)
-    plt.imsave(f'./Imgs/{args.name}_input{str(args.epoch)}.png', corr_img[0])
-    plt.title('Input', fontsize=15)
-    plt.subplot(1, 3, 2)
-    pred=img_pred[0].cpu().transpose(0, 1).transpose(1, 2).data.numpy(), 
-    plt.imshow(pred[0])
-    plt.imsave(f'./Imgs/{args.name}_{args.task}{str(args.epoch)}.png', pred[0])
-    plt.title('Prediction', fontsize=15)
-    plt.subplot(1, 3, 3)
-    origin = image[0].data.numpy()
-    plt.imshow(origin)
-    plt.imsave(f'./Imgs/{args.name}_gt.png', origin)
-    plt.title('Ground truth', fontsize=15)
-    plt.savefig(f'Imgs/{args.name}.png')
+        
+    if args.task == 'denoise' or 'inpaint':
+        plt.figure(figsize=(18, 3.5))
+        plt.subplot(1, 3, 1)
+        corr_img=corrupted_img[0].cpu().transpose(0, 1).transpose(1, 2).data.numpy(), 
+        plt.imshow(corr_img[0])
+        # print(corr_img[0].shape)
+        plt.imsave(f'./Imgs/{args.name}_input{str(args.epoch)}.png', corr_img[0])
+        plt.title('Input', fontsize=15)
+        plt.subplot(1, 3, 2)
+        pred=img_pred[0].cpu().transpose(0, 1).transpose(1, 2).data.numpy(), 
+        plt.imshow(pred[0])
+        plt.imsave(f'./Imgs/{args.name}_{args.task}{str(args.epoch)}.png', pred[0])
+        plt.title('Prediction', fontsize=15)
+        plt.subplot(1, 3, 3)
+        origin = image[0].data.numpy()
+        plt.imshow(origin)
+        plt.imsave(f'./Imgs/{args.name}_gt.png', origin)
+        plt.title('Ground truth', fontsize=15)
+        plt.savefig(f'Imgs/{args.name}.png')
+    
+    elif args.task == 'super':
+        plt.figure(figsize=(18, 3.5))
+        plt.subplot((1, 3, 1))
+        interpolation1 = upsample(address, t, 1)
+        plt.imshow(interpolation1)
+        plt.title('order=1')
+        plt.subplot((1, 3, 2))
+        interpolation1 = upsample(address, t, 4)
+        plt.imshow(interpolation1)
+        plt.title('order=4')
+        
+        plt.subplot(1, 3, 3)
+        pred=img_pred[0].cpu().transpose(0, 1).transpose(1, 2).data.numpy(), 
+        plt.imshow(pred[0])
+        plt.imsave(f'./Imgs/{args.name}_{args.task}{str(args.epoch)}.png', pred[0])
+        plt.title('Prediction', fontsize=15)
+        
+        
+        plt.savefig(f'Imgs/{args.name}.png')
     
     # python main.py --task=denoise --name=f16 --epoch=3000
     # python main.py --task=inpaint --name=kate --epoch=6000
+    # python main.py --task=super --name=zebra --epoch=2000
