@@ -18,37 +18,45 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='parameters')
     parser.add_argument('--task', type=str, default='denoise')
     parser.add_argument('--name', type=str, default='f16')
-    parser.add_argument('--address', type=str, default='./data/denoising/F16_GT.png')
-    parser.add_argument('--mask_address', type=str, default='./data/inpainting/kate_mask.png')
     parser.add_argument('--epoch',type=int,default='2400')
     args = parser.parse_args()
-    image = Image.open(args.address)
+    if args.name == 'f16':
+        address = './data/denoising/F16_GT.png'
+    elif args.name == 'snail':
+        address = './data/denoising/snail.jpg'
+    elif args.name == 'kate':
+        address = './data/inpainting/kate.png'
+        mask_address = './data/inpainting/kate_mask.png'
+    image = Image.open(address)
     w, h = image.size
     image = image.resize((w - w % 32, h - h % 32), resample=Image.LANCZOS)
     # image = image.resize((512, 512), resample=Image.LANCZOS)
     image = torch.from_numpy(np.array(image) / 255.0).unsqueeze(0).float()
     if args.task == 'denoise':
         # print(image.shape)
+        channels = 32
         model = Model(image.shape[1], image.shape[2],input_channel=32).to(device)
         optimizer = optim.Adam(model.parameters(), lr=0.01)
         loss_fn = torch.nn.MSELoss()
         corrupted_img = (image + torch.randn_like(image) * .1).clip(0, 1)
         corrupted_img = corrupted_img.transpose(2, 3).transpose(1, 2)
-        z = torch.rand([1, 32, corrupted_img.shape[-2], corrupted_img.shape[-1]]) * 0.1
+        z = torch.rand([1, channels, corrupted_img.shape[-2], corrupted_img.shape[-1]]) * 0.1
         z = z.to(device)
         # model = Model(input_channel=32, w = corrupted_img.shape[-2],h=corrupted_img.shape[-1]).to(device)
         corrupted_img = corrupted_img.to(device)
     elif args.task == 'inpaint':
         loss_fn = torch.nn.MSELoss()
-        mask = Image.open(args.mask_address)
+        mask = Image.open(mask_address)
         mask = image.resize((512, 512), resample=Image.LANCZOS)
+        img_with_mask = image * mask
+        
         
     elif args.task=='super':
         loss_fn = torch.nn.MSELoss()
     # print(corrupted_img.shape)
     for epoch in tqdm(range(args.epoch)):
         if args.task == 'denoise':
-            noise = torch.randn([1, 32, corrupted_img.shape[-2], corrupted_img.shape[-1]],device=device, requires_grad=True)/30
+            noise = torch.randn([1, channels, corrupted_img.shape[-2], corrupted_img.shape[-1]],device=device, requires_grad=True)/30
             input = z + noise
             img_pred = model.forward(input)
             loss = loss_fn(img_pred, corrupted_img)    
@@ -66,38 +74,20 @@ if __name__ == "__main__":
     plt.figure(figsize=(18, 3.5))
     plt.subplot(1, 3, 1)
     corr_img=corrupted_img[0].cpu().transpose(0, 1).transpose(1, 2).data.numpy(), 
-    # corr_img=transform.resize(corrupted_img[0].transpose(0, 1).transpose(1, 2).data.numpy(), 
-    #                           (h, w), 
-    #                           order=3, 
-    #                           mode='constant', 
-    #                           preserve_range=True, 
-    #                           anti_aliasing=True)
     plt.imshow(corr_img[0])
     # print(corr_img[0].shape)
     plt.imsave(f'./Imgs/{args.name}_input{str(args.epoch)}.png', corr_img[0])
     plt.title('Input', fontsize=15)
     plt.subplot(1, 3, 2)
     pred=img_pred[0].cpu().transpose(0, 1).transpose(1, 2).data.numpy(), 
-    # pred=transform.resize(img_pred[0].transpose(0, 1).transpose(1, 2).data.numpy(), 
-    #                         (h, w), 
-    #                         order=3, 
-    #                         mode='constant', 
-    #                         preserve_range=True, 
-    #                         anti_aliasing=True)
     plt.imshow(pred[0])
     plt.imsave(f'./Imgs/{args.name}_{args.task}{str(args.epoch)}.png', pred[0])
     plt.title('Prediction', fontsize=15)
     plt.subplot(1, 3, 3)
     origin = image[0].data.numpy()
-    # origin=transform.resize(image[0].data.numpy(),
-    #                         (h, w), 
-    #                         order=3, 
-    #                         mode='constant', 
-    #                         preserve_range=True, 
-    #                         anti_aliasing=True)
     plt.imshow(origin)
     plt.imsave(f'./Imgs/{args.name}_gt.png', origin)
     plt.title('Ground truth', fontsize=15)
     plt.savefig(f'Imgs/{args.name}.png')
     
-    # python main.py --task=denoise --name=f16 --address=./data/denoising/F16_GT.png --epoch=3000
+    # python main.py --task=denoise --name=f16 --epoch=3000

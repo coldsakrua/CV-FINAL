@@ -56,7 +56,7 @@ class U(nn.Module):
 
 class Model(nn.Module):
 
-    def __init__(self, w, h, input_channel=3, mode='bilinear'):
+    def __init__(self, w, h, input_channel=3, u_mode='bilinear'):
         super(Model, self).__init__()
         self.w1,self.h1 = int(w/64), int(h/64)
         self.w2,self.h2 = int(w/32), int(h/32)
@@ -70,11 +70,11 @@ class Model(nn.Module):
         self.d5 = D(128, 128, 3)
         # self.d6 = D(128, 256, 3)
 
-        self.u1 = U(128, 128, 3, mode=mode)
-        self.u2 = U(128 + 4, 128, 3, mode=mode)
-        self.u3 = U(128 + 4, 128, 3, mode=mode)
-        self.u4 = U(128 + 4, 128, 3, mode=mode)
-        self.u5 = U(128 + 4, 128, 3, mode=mode)
+        self.u1 = U(128, 128, 3, mode=u_mode)
+        self.u2 = U(128 + 4, 128, 3, mode=u_mode)
+        self.u3 = U(128 + 4, 128, 3, mode=u_mode)
+        self.u4 = U(128 + 4, 128, 3, mode=u_mode)
+        self.u5 = U(128 + 4, 128, 3, mode=u_mode)
         # self.u6 = U(128 + 4, 256, 3, mode=mode)
 
         self.s2 = S(128, 4, 1)
