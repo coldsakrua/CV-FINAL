@@ -104,3 +104,5 @@ class Model(nn.Module):
         h = self.u1(h)
 
         return torch.sigmoid(self.conv_out(h))
+    
+    
