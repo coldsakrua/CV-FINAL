@@ -35,7 +35,7 @@ if __name__ == "__main__":
     if args.task == 'denoise':
         # print(image.shape)
         channels = 32
-        model = Model(image.shape[1], image.shape[2],input_channel=32).to(device)
+        model = Model(image.shape[1], image.shape[2],input_channel=channels).to(device)
         optimizer = optim.Adam(model.parameters(), lr=0.01)
         loss_fn = torch.nn.MSELoss()
         corrupted_img = (image + torch.randn_like(image) * .1).clip(0, 1)
@@ -45,11 +45,20 @@ if __name__ == "__main__":
         # model = Model(input_channel=32, w = corrupted_img.shape[-2],h=corrupted_img.shape[-1]).to(device)
         corrupted_img = corrupted_img.to(device)
     elif args.task == 'inpaint':
+        channels = 32
         loss_fn = torch.nn.MSELoss()
         mask = Image.open(mask_address)
-        mask = image.resize((512, 512), resample=Image.LANCZOS)
-        img_with_mask = image * mask
-        
+        mask = mask.resize((w - w % 32, h - h % 32), resample=Image.LANCZOS)
+        mask = torch.from_numpy(np.array(mask) / 255.0).unsqueeze(0).float()
+        img_with_mask = image * mask.transpose(0,1).transpose(1,2)
+        mask = mask.to(device)
+        # print(img_with_mask.shape)
+        corrupted_img = np.transpose(img_with_mask[0], (2,0,1))[None,:,:,:]
+        corrupted_img = corrupted_img.to(device)
+        model = Model(image.shape[1], image.shape[2],input_channel=channels).to(device)
+        optimizer = optim.Adam(model.parameters(), lr=0.01)
+        z = torch.rand([1, channels, image.shape[1], image.shape[2]]) * 0.1
+        z = z.to(device)
         
     elif args.task=='super':
         loss_fn = torch.nn.MSELoss()
@@ -61,11 +70,15 @@ if __name__ == "__main__":
             img_pred = model.forward(input)
             loss = loss_fn(img_pred, corrupted_img)    
         
-        if args.task == 'super':
+        elif args.task == 'super':
             pass
         
         elif args.task == 'inpaint':
-            pass
+            noise = torch.randn(z.shape,device=device, requires_grad=True)/30
+            input = z + noise
+            img_pred = model.forward(input)
+            # print(img_pred.shape, mask.shape)
+            loss = loss_fn(img_pred*mask[None,:,:,:], corrupted_img)
         
         optimizer.zero_grad()
         loss.backward()
@@ -91,3 +104,4 @@ if __name__ == "__main__":
     plt.savefig(f'Imgs/{args.name}.png')
     
     # python main.py --task=denoise --name=f16 --epoch=3000
+    # python main.py --task==inpaint --name=kate --epoch=6000
