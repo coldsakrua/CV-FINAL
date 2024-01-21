@@ -1,6 +1,7 @@
 import numpy as np
 from skimage import transform
 from PIL import Image
+import torch.nn as nn
 
 def upsample(address, times, order):
     """
@@ -17,6 +18,6 @@ def upsample(address, times, order):
     res = transform.resize(image, (times * w, times * h), order=order, anti_aliasing=True, mode='constant')
     return res
 
-def downsample(image, size, order):
-    res = transform.resize(image, size, order=order, anti_aliasing=True, mode='constant')
-    return res
+class downsample(nn.Module):
+    def __init__(self, factor):
+        super(downsample, self).__init__()

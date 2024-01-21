@@ -91,7 +91,8 @@ if __name__ == "__main__":
             input = z + noise
             # print(input.shape)
             img_pred = model.forward(input)
-            pred = downsample(img_pred, (1, 3, image.shape[1], image.shape[2]))
+            pred = downsample(img_pred, (1, 3, image.shape[1], image.shape[2]), order=3, factor=t)
+            pred = torch.tensor(pred, device=device, requires_grad=True)
             loss = loss_fn(pred, corrupted_img)
         
         elif args.task == 'inpaint':
@@ -147,3 +148,4 @@ if __name__ == "__main__":
     
     # python main.py --task=denoise --name=f16 --epoch=3000
     # python main.py --task==inpaint --name=kate --epoch=6000
+    # python main.py --task=super --name=zebra --epoch=2000
