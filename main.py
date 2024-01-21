@@ -104,4 +104,4 @@ if __name__ == "__main__":
     plt.savefig(f'Imgs/{args.name}.png')
     
     # python main.py --task=denoise --name=f16 --epoch=3000
-    # python main.py --task==inpaint --name=kate --epoch=6000
+    # python main.py --task=inpaint --name=kate --epoch=6000
