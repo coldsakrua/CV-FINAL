@@ -106,21 +106,24 @@ if __name__ == "__main__":
         z = z.to(device)
         corrupted_img = corrupted_img.to(device)
         optimizer = optim.Adam(model.parameters(), lr=0.01)
+        downsampler = downsample(3, t, 'gaussian', device).to(device)
 
     for epoch in tqdm(range(args.epoch)):
         if args.task == 'denoise':
             noise = torch.randn([1, channels, corrupted_img.shape[-2], corrupted_img.shape[-1]],device=device, requires_grad=True)/30
             input = z + noise
-            img_pred = model.forward(input)
+            img_pred = model(input)
             loss = loss_fn(img_pred, corrupted_img)    
         
         elif args.task == 'super':
             noise = torch.randn(z.shape,device=device, requires_grad=True)/30
             input = z + noise
             # print(input.shape)
-            img_pred = model.forward(input)
-            pred = downsample(img_pred, (1, 3, image.shape[1], image.shape[2]), order=3, factor=t)
-            pred = torch.tensor(pred, device=device, requires_grad=True)
+            img_pred = model(input)
+            # pred = downsample(img_pred, (1, 3, image.shape[1], image.shape[2]), order=3, factor=t)
+            # pred = torch.tensor(pred, device=device, requires_grad=True)
+            pred = downsampler(img_pred)
+            # print(pred.shape, corrupted_img.shape)
             loss = loss_fn(pred, corrupted_img)
         
         elif args.task == 'inpaint':

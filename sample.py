@@ -20,9 +20,9 @@ def upsample(address, times, order):
     return res
 
 class downsample(nn.Module):
-    def __init__(self, input_channels, factor, kernel_mode):
+    def __init__(self, input_channels, factor, kernel_mode, device):
         super(downsample, self).__init__()
-        self.kernel = self.get_kernel(factor, input_channels, kernel_mode)
+        self.kernel = self.get_kernel(factor, input_channels, kernel_mode).to(device)
         self.factor = factor
 
     def get_kernel(self, factor, input_channels, kernel_mode):
@@ -38,7 +38,7 @@ class downsample(nn.Module):
             kernel = torch.zeros(size=(factor, factor))
             for i in range(0, factor):
                 for j in range(0, factor):
-                    kernel[i, j] = torch.exp(-((i - float(factor/2))**2 + (j - float(factor/2))**2 ) / 2)
+                    kernel[i, j] = torch.exp(torch.tensor(-((i - float(factor/2))**2 + (j - float(factor/2))**2 ) / 2))
             kernel /= sum(kernel)
             
         elif kernel_mode == 'tent':
@@ -48,10 +48,11 @@ class downsample(nn.Module):
                 m = 2 * n + 1
                 kernel[i: factor-i, i: factor-i] *= m
             kernel /= sum(kernel)
-             
+        kernel = torch.tensor(kernel)
         res[:, :] = kernel
         return res
     
     def forward(self, x):
-        down = nn.functional.conv2d(x, self.kernel, bias=False, stride=self.factor)
+        print(type(x), type(self.kernel))
+        down = nn.functional.conv2d(x, self.kernel, bias=None, stride=self.factor)
         return down
