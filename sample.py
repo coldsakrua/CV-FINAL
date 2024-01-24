@@ -59,7 +59,8 @@ class downsample(nn.Module):
                 m = 2 * n + 1
                 kernel[i: factor-i, i: factor-i] *= m
             kernel /= torch.sum(kernel)
-        res[:, :] = kernel
+        for i in range(input_channels):
+            res[i, i] = kernel
         return res
     
     def forward(self, x):
