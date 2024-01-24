@@ -24,35 +24,49 @@ class downsample(nn.Module):
         super(downsample, self).__init__()
         self.kernel = self.get_kernel(factor, input_channels, kernel_mode).to(device)
         self.factor = factor
-
+        self.kernel_mode = kernel_mode
+        
     def get_kernel(self, factor, input_channels, kernel_mode):
         assert kernel_mode in ['box', 'gaussian', 'tent']
-        res = torch.zeros(size=(input_channels, input_channels, factor, factor))
+        
         
         if kernel_mode == 'box':
+            kernel_size = factor
+            res = torch.zeros(size=(input_channels, input_channels, kernel_size, kernel_size))
             kernel = torch.zeros(size=(factor, factor))
-            kernel /= factor*factor
+            kernel /= kernel_size*kernel_size
             
             
         elif kernel_mode == 'gaussian':
-            kernel = torch.zeros(size=(factor, factor))
-            for i in range(0, factor):
-                for j in range(0, factor):
-                    kernel[i, j] = torch.exp(torch.tensor(-((i - float(factor/2))**2 + (j - float(factor/2))**2 ) / 2))
-            kernel /= sum(kernel)
+            kernel_size = factor * 2 - 1
+            sigma = 0.5
+            res = torch.zeros(size=(input_channels, input_channels, kernel_size, kernel_size))
+            kernel = torch.zeros(size=(kernel_size, kernel_size))
+            mid = float((kernel_size - 1) / 2)
+            for i in range(0, kernel_size):
+                for j in range(0, kernel_size):
+                    di = i * 1. - mid
+                    dj = j * 1. - mid
+                    kernel[i, j] = torch.exp(torch.tensor(-(di**2 + dj**2 ) / (2 * sigma * sigma)))
+            kernel /= torch.sum(kernel)
             
         elif kernel_mode == 'tent':
+            kernel_size = factor
+            res = torch.zeros(size=(input_channels, input_channels, kernel_size, kernel_size))
             kernel = torch.ones(size=(factor, factor))
             n = int((factor + 1) / 2)
             for i in range(1, n):
                 m = 2 * n + 1
                 kernel[i: factor-i, i: factor-i] *= m
-            kernel /= sum(kernel)
-        kernel = torch.tensor(kernel)
+            kernel /= torch.sum(kernel)
         res[:, :] = kernel
         return res
     
     def forward(self, x):
-        print(type(x), type(self.kernel))
-        down = nn.functional.conv2d(x, self.kernel, bias=None, stride=self.factor)
+        # print(type(x), type(self.kernel))
+        if self.kernel_mode == 'gaussian':
+            down = nn.functional.conv2d(x, self.kernel, bias=None, stride=self.factor, padding=2)
+            # print(down.shape)
+        else:
+            down = nn.functional.conv2d(x, self.kernel, bias=None, stride=self.factor, padding=0)
         return down

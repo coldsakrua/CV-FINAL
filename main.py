@@ -94,13 +94,14 @@ if __name__ == "__main__":
             z = torch.rand([1, channels, image.shape[1], image.shape[2]]) * 0.1
             z = z.to(device)
 
-        print(z.shape)
+        # print(z.shape)
         
     elif args.task=='super':
         loss_fn = torch.nn.MSELoss()
         channels = 32
         model = Model(t * image.shape[1], t * image.shape[2], input_channel=channels).to(device)
-        corrupted_img = (image + torch.randn_like(image) * .1).clip(0, 1)
+        # corrupted_img = (image + torch.randn_like(image) * .1).clip(0, 1)
+        corrupted_img = image
         corrupted_img = corrupted_img.transpose(2, 3).transpose(1, 2).to(device)
         z = torch.rand([1, channels, t * image.shape[1], t * image.shape[2]]) * 0.1
         z = z.to(device)
@@ -118,12 +119,10 @@ if __name__ == "__main__":
         elif args.task == 'super':
             noise = torch.randn(z.shape,device=device, requires_grad=True)/30
             input = z + noise
-            # print(input.shape)
+            # input = z
             img_pred = model(input)
-            # pred = downsample(img_pred, (1, 3, image.shape[1], image.shape[2]), order=3, factor=t)
-            # pred = torch.tensor(pred, device=device, requires_grad=True)
             pred = downsampler(img_pred)
-            # print(pred.shape, corrupted_img.shape)
+            # print(pred.shape)
             loss = loss_fn(pred, corrupted_img)
         
         elif args.task == 'inpaint':
@@ -133,20 +132,20 @@ if __name__ == "__main__":
                 noise = torch.randn(z.shape,device=device, requires_grad=True)/30
                 input = z + noise
             img_pred = model.forward(input)
-            print(img_pred.shape, mask.shape)
+            # print(img_pred.shape, mask.shape)
             loss = loss_fn(img_pred*mask[None,:,:,:], corrupted_img)
         
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
         
-    if args.task == 'denoise' or 'inpaint':
+    if args.task == 'denoise' or args.task == 'inpaint':
         plt.figure(figsize=(18, 3.5))
         plt.subplot(1, 3, 1)
         corr_img=corrupted_img[0].cpu().transpose(0, 1).transpose(1, 2).data.numpy(), 
         plt.imshow(corr_img[0])
         # print(corr_img[0].shape)
-        plt.imsave(f'./Imgs/{args.name}_input{str(args.epoch)}.png', corr_img[0])
+        # plt.imsave(f'./Imgs/{args.name}_input{str(args.epoch)}.png', corr_img[0])
         plt.title('Input', fontsize=15)
         plt.subplot(1, 3, 2)
         pred=img_pred[0].cpu().transpose(0, 1).transpose(1, 2).data.numpy(), 
@@ -161,22 +160,24 @@ if __name__ == "__main__":
         plt.savefig(f'Imgs/{args.name}.png')
     
     elif args.task == 'super':
-        plt.figure(figsize=(18, 3.5))
-        plt.subplot((1, 3, 1))
+        plt.figure(figsize=(18, 4))
+        plt.subplot(1, 3, 1)
         interpolation1 = upsample(address, t, 1)
         plt.imshow(interpolation1)
         plt.title('order=1')
-        plt.subplot((1, 3, 2))
+        plt.subplot(1, 3, 2)
         interpolation1 = upsample(address, t, 4)
         plt.imshow(interpolation1)
         plt.title('order=4')
         
         plt.subplot(1, 3, 3)
-        pred=img_pred[0].cpu().transpose(0, 1).transpose(1, 2).data.numpy(), 
-        plt.imshow(pred[0])
-        plt.imsave(f'./Imgs/{args.name}_{args.task}{str(args.epoch)}.png', pred[0])
-        plt.title('Prediction', fontsize=15)
+        pred=img_pred[0].cpu().transpose(0, 1).transpose(1, 2).data.numpy()
         
+        # pred=img_pred[0].cpu().transpose(0, 1).transpose(1, 2).data.numpy()
+        # print(pred.max())
+        plt.imshow(pred)
+        plt.imsave(f'./Imgs/{args.name}_{args.task}{str(args.epoch)}.png', pred)
+        plt.title('Prediction', fontsize=15)
         
         plt.savefig(f'Imgs/{args.name}.png')
     
