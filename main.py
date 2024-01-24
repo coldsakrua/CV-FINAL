@@ -10,6 +10,8 @@ import skimage.transform as transform
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 from model import Model
+from model_without_skip import Model_without_skip
+from model_for_inpainting import Model_for_inpainting
 from sample import upsample,downsample
 
 
@@ -29,10 +31,10 @@ if __name__ == "__main__":
         mask_address = './data/inpainting/kate_mask.png'
     elif args.name == 'library':
         address = './data/inpainting/library.png'
-        model_address = './data/inpainting/library_mask.png'
+        mask_address = './data/inpainting/library_mask.png'
     elif args.name == 'vase':
         address = './data/inpainting/vase.png'
-        model_address = './data/inpainting/vase_mask.png'
+        mask_address = './data/inpainting/vase_mask.png'
     elif args.name == 'zebra':
         address = './data/sr/zebra_crop.png'
         t = 4
@@ -53,7 +55,6 @@ if __name__ == "__main__":
         # model = Model(input_channel=32, w = corrupted_img.shape[-2],h=corrupted_img.shape[-1]).to(device)
         corrupted_img = corrupted_img.to(device)
     elif args.task == 'inpaint':
-        channels = 32
         loss_fn = torch.nn.MSELoss()
         mask = Image.open(mask_address, 'r')
         mask = mask.resize((w - w % 32, h - h % 32), resample=Image.LANCZOS)
@@ -63,10 +64,37 @@ if __name__ == "__main__":
         # print(img_with_mask.shape)
         corrupted_img = np.transpose(img_with_mask[0], (2,0,1))[None,:,:,:]
         corrupted_img = corrupted_img.to(device)
-        model = Model(image.shape[1], image.shape[2],input_channel=channels).to(device)
-        optimizer = optim.Adam(model.parameters(), lr=0.01)
-        z = torch.rand([1, channels, image.shape[1], image.shape[2]]) * 0.1
-        z = z.to(device)
+
+        if args.name == 'kate':
+            channels = 32
+            model = Model(image.shape[1], image.shape[2],input_channel=channels).to(device)
+            optimizer = optim.Adam(model.parameters(), lr=0.01)
+            z = torch.rand([1, channels, image.shape[1], image.shape[2]]) * 0.1
+            z = z.to(device)
+        elif args.name == 'vase':
+            channels = 2
+            model = Model_without_skip(image.shape[1], image.shape[2], input_channel=channels).to(device)
+            optimizer = optim.Adam(model.parameters(), lr=0.01)
+            X, Y = np.meshgrid(np.arange(0, image.shape[2]) / float(image.shape[2] - 1),
+                               np.arange(0, image.shape[1]) / float(image.shape[1] - 1))
+            meshgrid = np.concatenate([X[None, :], Y[None, :]])
+            z = meshgrid.reshape(-1, channels, meshgrid.shape[1], meshgrid.shape[2])
+            z = torch.from_numpy(z)
+            z = z.to(torch.float32)
+            z = z.to(device)
+            # channels = 32
+            #model = Model(image.shape[1], image.shape[2],input_channel=channels).to(device)
+            #optimizer = optim.Adam(model.parameters(), lr=0.01)
+            #z = torch.rand([1, channels, image.shape[1], image.shape[2]]) * 0.1
+            #z = z.to(device)
+        elif args.name == 'library':
+            channels = 32
+            model = Model_for_inpainting(image.shape[1], image.shape[2],input_channel=channels, u_mode='nearest').to(device)
+            optimizer = optim.Adam(model.parameters(), lr=0.1)
+            z = torch.rand([1, channels, image.shape[1], image.shape[2]]) * 0.1
+            z = z.to(device)
+
+        print(z.shape)
         
     elif args.task=='super':
         loss_fn = torch.nn.MSELoss()
@@ -96,10 +124,13 @@ if __name__ == "__main__":
             loss = loss_fn(pred, corrupted_img)
         
         elif args.task == 'inpaint':
-            noise = torch.randn(z.shape,device=device, requires_grad=True)/30
-            input = z + noise
+            if args.name == 'library':
+                input = z
+            else:
+                noise = torch.randn(z.shape,device=device, requires_grad=True)/30
+                input = z + noise
             img_pred = model.forward(input)
-            # print(img_pred.shape, mask.shape)
+            print(img_pred.shape, mask.shape)
             loss = loss_fn(img_pred*mask[None,:,:,:], corrupted_img)
         
         optimizer.zero_grad()
@@ -147,5 +178,7 @@ if __name__ == "__main__":
         plt.savefig(f'Imgs/{args.name}.png')
     
     # python main.py --task=denoise --name=f16 --epoch=3000
-    # python main.py --task=inpaint --name=kate --epoch=6000
+    # python main.py --task=inpaint --name=kate --epoch=10000
     # python main.py --task=super --name=zebra --epoch=2000
+    # python main.py --task=inpaint --name=vase --epoch=20000
+    # python main.py --task=inpaint --name=library --epoch=5000
