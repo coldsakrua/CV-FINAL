@@ -71,3 +71,18 @@ class downsample(nn.Module):
         else:
             down = nn.functional.conv2d(x, self.kernel, bias=None, stride=self.factor, padding=0)
         return down
+    
+class smooth(nn.Module):
+    def __init__(self, device):
+        self.kernel = self.get_kernel().to(device)
+        
+    def get_kernel(self):
+        kernel_size = 3
+        kernel = torch.ones(size=(kernel_size, kernel_size))
+        kernel /= (kernel_size * kernel_size)
+        
+        return kernel
+    
+    def forward(self, x):
+        smoothness = nn.functional.conv2d(x, self.kernel, stride=1, padding=1)
+        return smoothness
