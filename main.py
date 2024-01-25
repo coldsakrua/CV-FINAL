@@ -13,6 +13,7 @@ from model import Model
 from model_without_skip import Model_without_skip
 from model_for_inpainting import Model_for_inpainting
 from sample import upsample,downsample
+from psnr import cal_psnr
 
 
 if __name__ == "__main__":
@@ -109,6 +110,7 @@ if __name__ == "__main__":
         optimizer = optim.Adam(model.parameters(), lr=0.01)
         downsampler = downsample(3, t, 'gaussian', device).to(device)
 
+    loss_ = []
     for epoch in tqdm(range(args.epoch)):
         if args.task == 'denoise':
             noise = torch.randn([1, channels, corrupted_img.shape[-2], corrupted_img.shape[-1]],device=device, requires_grad=True)/30
@@ -137,8 +139,9 @@ if __name__ == "__main__":
         
         optimizer.zero_grad()
         loss.backward()
+        loss_.append(loss.cpu().item())
         optimizer.step()
-        
+
     if args.task == 'denoise' or args.task == 'inpaint':
         plt.figure(figsize=(18, 3.5))
         plt.subplot(1, 3, 1)
@@ -158,6 +161,13 @@ if __name__ == "__main__":
         plt.imsave(f'./Imgs/{args.name}_gt.png', origin)
         plt.title('Ground truth', fontsize=15)
         plt.savefig(f'Imgs/{args.name}.png')
+
+
+        # calculate psnr
+        prediction = Image.open(f'./Imgs/{args.name}_{args.task}{str(args.epoch)}.png', 'r').convert("RGB")
+        ground_truth = Image.open(f'./Imgs/{args.name}_gt.png', 'r').convert("RGB")
+        # print((np.array(prediction)).shape)
+        psnr = cal_psnr(np.array(prediction), np.array(ground_truth), 255)
     
     elif args.task == 'super':
         plt.figure(figsize=(18, 4))
@@ -180,7 +190,38 @@ if __name__ == "__main__":
         plt.title('Prediction', fontsize=15)
         
         plt.savefig(f'Imgs/{args.name}.png')
+
+        origin = image[0].data.numpy()
+        plt.imsave(f'./Imgs/{args.name}_gt.png', origin)
+
+
+        # calculate psnr
+        downsampler = downsample(3, t, 'gaussian', 'cpu')
+        prediction = Image.open(f'./Imgs/{args.name}_{args.task}{str(args.epoch)}.png', 'r').convert("RGB")
+        # print(prediction.shape)
+        prediction = torch.from_numpy(np.array(prediction) / 255.0).unsqueeze(0).float()
+        # print(prediction.shape)
+        prediction = prediction.transpose(2, 3).transpose(1, 2)
+        # print(prediction.shape)
+        prediction = downsampler(prediction)
+        prediction = prediction[0].transpose(0, 1).transpose(1, 2).data.numpy()
+        # print(np.max(prediction))
+
+        ground_truth = np.array(Image.open(f'./Imgs/{args.name}_gt.png', 'r').convert('RGB')) / 255.
+        psnr = cal_psnr(prediction, ground_truth, 1)
     
+    plt.figure(figsize=(18, 4))
+    # save loss curve and psnr
+    x_ = [i for i in range(1, args.epoch + 1)]
+    plt.plot(x_, loss_)
+    plt.title('loss: {}_{}{}, psnr={}'.format(args.name, args.task, args.epoch, psnr))
+    # plt.legend()
+    if not os.path.exists('./loss_curve'):
+        os.makedirs('./loss_curve')
+    plt.savefig('./loss_curve/{}_{}{}_loss.png'.format(args.name, args.task, args.epoch))
+
+    print(f"psnr = {psnr}")
+
     # python main.py --task=denoise --name=f16 --epoch=3000
     # python main.py --task=inpaint --name=kate --epoch=10000
     # python main.py --task=super --name=zebra --epoch=2000
