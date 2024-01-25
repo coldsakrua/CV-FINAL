@@ -196,15 +196,15 @@ if __name__ == "__main__":
 
 
         # calculate psnr
-        downsampler = downsample(3, t, 'gaussian', 'cpu')
+        downsampler = downsample(3, t, 'gaussian', device).to(device)
         prediction = Image.open(f'./Imgs/{args.name}_{args.task}{str(args.epoch)}.png', 'r').convert("RGB")
         # print(prediction.shape)
         prediction = torch.from_numpy(np.array(prediction) / 255.0).unsqueeze(0).float()
         # print(prediction.shape)
-        prediction = prediction.transpose(2, 3).transpose(1, 2)
+        prediction = prediction.transpose(2, 3).transpose(1, 2).to(device)
         # print(prediction.shape)
         prediction = downsampler(prediction)
-        prediction = prediction[0].transpose(0, 1).transpose(1, 2).data.numpy()
+        prediction = prediction[0].cpu().transpose(0, 1).transpose(1, 2).data.numpy()
         # print(np.max(prediction))
 
         ground_truth = np.array(Image.open(f'./Imgs/{args.name}_gt.png', 'r').convert('RGB')) / 255.
