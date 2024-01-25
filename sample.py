@@ -73,16 +73,46 @@ class downsample(nn.Module):
         return down
     
 class smooth(nn.Module):
-    def __init__(self, device):
+    def __init__(self,in_channels, device):
+        super(smooth, self).__init__()
+        self.channels = in_channels
         self.kernel = self.get_kernel().to(device)
         
     def get_kernel(self):
         kernel_size = 3
+        res = torch.zeros(size=(self.channels, self.channels, kernel_size, kernel_size))
         kernel = torch.ones(size=(kernel_size, kernel_size))
-        kernel /= (kernel_size * kernel_size)
-        
-        return kernel
+        mid = int(kernel_size / 2)
+        kernel[mid, mid] = torch.tensor(20)
+        kernel /= kernel.sum()
+        # print(kernel)
+        for i in range(self.channels):
+            res[i, i] = kernel
+        return res
     
     def forward(self, x):
         smoothness = nn.functional.conv2d(x, self.kernel, stride=1, padding=1)
         return smoothness
+    
+    
+class sharp(nn.Module):
+    def __init__(self, in_channels, device):
+        super(sharp, self).__init__()
+        self.channels = in_channels
+        self.kernel = self.get_kernel().to(device)
+                
+    def get_kernel(self):
+        kernel_size = 3
+        res = torch.zeros(size=(self.channels, self.channels, kernel_size, kernel_size))
+        kernel = torch.ones(size=(kernel_size, kernel_size))* -0.1
+        mid = int(kernel_size / 2)
+        kernel[mid, mid] = torch.tensor(1.8)
+        # kernel /= kernel.sum()
+        # print(kernel)
+        for i in range(self.channels):
+            res[i, i] = kernel
+        return res
+    
+    def forward(self, x):
+        sharpness = nn.functional.conv2d(x, self.kernel, stride=1, padding=1)
+        return sharpness

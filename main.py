@@ -2,17 +2,15 @@ import torch
 import numpy as np
 from PIL import Image
 from tqdm import tqdm
-import torch.nn as nn
 import argparse
 from torch import optim
 import matplotlib.pyplot as plt
-import skimage.transform as transform
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 from model import Model
 from model_without_skip import Model_without_skip
 from model_for_inpainting import Model_for_inpainting
-from sample import upsample,downsample
+from sample import upsample,downsample, smooth, sharp
 from psnr import cal_psnr
 
 
@@ -39,6 +37,9 @@ if __name__ == "__main__":
     elif args.name == 'zebra':
         address = './data/sr/zebra_crop.png'
         t = 4
+    elif args.name == 'wps':
+        address = './data/denoising/wps.png'
+    
     image = Image.open(address, 'r')
     w, h = image.size
     image = image.resize((w - w % 32, h - h % 32), resample=Image.LANCZOS)
@@ -46,8 +47,11 @@ if __name__ == "__main__":
     if args.task == 'denoise':
         # print(image.shape)
         channels = 32
-        model = Model(image.shape[1], image.shape[2],input_channel=channels).to(device)
-        optimizer = optim.Adam(model.parameters(), lr=0.01)
+        if args.name == 'snail':
+            model = Model(image.shape[1], image.shape[2],input_channel=channels, channels=[128, 128, 128, 256, 256], skip=[4, 4, 4, 8, 8]).to(device)
+        else:
+            model = Model(image.shape[1], image.shape[2],input_channel=channels).to(device)
+        optimizer = optim.Adam(model.parameters(), lr=0.02)
         loss_fn = torch.nn.MSELoss()
         corrupted_img = (image + torch.randn_like(image) * .1).clip(0, 1)
         corrupted_img = corrupted_img.transpose(2, 3).transpose(1, 2)
@@ -110,13 +114,26 @@ if __name__ == "__main__":
         optimizer = optim.Adam(model.parameters(), lr=0.01)
         downsampler = downsample(3, t, 'gaussian', device).to(device)
 
+    ## train
     loss_ = []
+    res = torch.zeros_like(corrupted_img).to(device)
+    thre = 50
+    smooth_model = smooth(3, device)
+    sharp_model = sharp(3, device)
     for epoch in tqdm(range(args.epoch)):
         if args.task == 'denoise':
             noise = torch.randn([1, channels, corrupted_img.shape[-2], corrupted_img.shape[-1]],device=device, requires_grad=True)/30
             input = z + noise
+            # input = z
             img_pred = model(input)
-            loss = loss_fn(img_pred, corrupted_img)    
+            loss = loss_fn(img_pred, corrupted_img)  
+            if (epoch + 1) % 3 == 0:
+                # img_pred = sharp_model(img_pred)
+                img_pred = smooth_model(img_pred)  
+                
+            if epoch >= args.epoch - thre :
+                res += img_pred / thre
+            
         
         elif args.task == 'super':
             noise = torch.randn(z.shape,device=device, requires_grad=True)/30
@@ -151,9 +168,11 @@ if __name__ == "__main__":
         # plt.imsave(f'./Imgs/{args.name}_input{str(args.epoch)}.png', corr_img[0])
         plt.title('Input', fontsize=15)
         plt.subplot(1, 3, 2)
-        pred=img_pred[0].cpu().transpose(0, 1).transpose(1, 2).data.numpy(), 
-        plt.imshow(pred[0])
-        plt.imsave(f'./Imgs/{args.name}_{args.task}{str(args.epoch)}.png', pred[0])
+        # pred=img_pred[0].cpu().transpose(0, 1).transpose(1, 2).data.numpy()
+        pred=res[0].cpu().transpose(0, 1).transpose(1, 2).data.numpy().clip(0,1)
+        # plt.imshow(pred[0])
+        plt.imshow(pred)
+        plt.imsave(f'./Imgs/{args.name}_{args.task}{str(args.epoch)}.png', pred)
         plt.title('Prediction', fontsize=15)
         plt.subplot(1, 3, 3)
         origin = image[0].data.numpy()
@@ -227,3 +246,4 @@ if __name__ == "__main__":
     # python main.py --task=super --name=zebra --epoch=2000
     # python main.py --task=inpaint --name=vase --epoch=20000
     # python main.py --task=inpaint --name=library --epoch=5000
+    # python main.py --task=denoise --name=snail --epoch=3000

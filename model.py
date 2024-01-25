@@ -56,69 +56,89 @@ class U(nn.Module):
 
 class Model(nn.Module):
 
-    def __init__(self, w, h, input_channel=3, u_mode='bilinear'):
+    def __init__(self, w, h, input_channel=3, u_mode='bilinear', channels=[128, 128, 128, 128, 128], skip=[4, 4, 4, 4, 4]):
         super(Model, self).__init__()
+        self.skip = skip
+        self.d1 = D(input_channel, channels[0], 3)
+        self.d2 = D(channels[0], channels[1], 3)
+        self.d3 = D(channels[1], channels[2], 3)
+        self.d4 = D(channels[2], channels[3], 3)
+        self.d5 = D(channels[3], channels[4], 3)
 
-        self.d1 = D(input_channel, 128, 3)
-        self.d2 = D(128, 128, 3)
-        self.d3 = D(128, 128, 3)
-        self.d4 = D(128, 128, 3)
-        self.d5 = D(128, 128, 3)
+        self.u1 = U(channels[1] + skip[0], channels[0], 3, mode=u_mode)
+        self.u2 = U(channels[2] + skip[1], channels[1], 3, mode=u_mode)
+        self.u3 = U(channels[3] + skip[2], channels[2], 3, mode=u_mode)
+        self.u4 = U(channels[4] + skip[3], channels[3], 3, mode=u_mode)
+        self.u5 = U(channels[4] + skip[4], channels[4], 3, mode=u_mode)
 
-        self.u1 = U(128 + 4, 128, 3, mode=u_mode)
-        self.u2 = U(128 + 4, 128, 3, mode=u_mode)
-        self.u3 = U(128 + 4, 128, 3, mode=u_mode)
-        self.u4 = U(128 + 4, 128, 3, mode=u_mode)
-        self.u5 = U(128 + 4, 128, 3, mode=u_mode)
+        self.s1 = S(channels[0], skip[0], 1)
+        self.s2 = S(channels[1], skip[1], 1)
+        self.s3 = S(channels[2], skip[2], 1)
+        self.s4 = S(channels[3], skip[3], 1)
+        self.s5 = S(channels[4], skip[4], 1)
 
-        self.s1 = S(128, 4, 1)
-        self.s2 = S(128, 4, 1)
-        self.s3 = S(128, 4, 1)
-        self.s4 = S(128, 4, 1)
-        self.s5 = S(128, 4, 1)
-
-        self.conv_out = nn.Conv2d(128, 3, 1, stride=1, padding=0, bias=True)
+        self.conv_out = nn.Conv2d(channels[0], 3, 1, stride=1, padding=0, bias=True)
 
     def forward(self, x):
         h = self.d1(x)
-        skip1 = self.s1(h)
+        if self.skip[0]!=0:
+            skip1 = self.s1(h)
         h = self.d2(h)
-        skip2 = self.s2(h)
+        if self.skip[1]!=0:
+            skip2 = self.s2(h)
         h = self.d3(h)
-        skip3 = self.s3(h)
+        if self.skip[2]!=0:
+            skip3 = self.s3(h)
         h = self.d4(h)
-        skip4 = self.s4(h)
+        if self.skip[3]!=0:
+            skip4 = self.s4(h)
         h = self.d5(h)
-        skip5 = self.s5(h)
+        if self.skip[4]!=0:
+            skip5 = self.s5(h)
 
-        if skip5.shape[2] == h.shape[2]:
-            h = self.u5(torch.cat((skip5, h), dim=1))
+        
+        if self.skip[4]==0:
+            h = self.u5(h)
         else:
-            self.crop_w, self.crop_h = h.shape[2] // 2, h.shape[3] // 2
-            h = self.u5(torch.cat((skip5[:,:,self.crop_w:-self.crop_w,self.crop_h:-self.crop_h],h),dim=1))
-
-        if skip4.shape[2] == h.shape[2]:
-            h = self.u4(torch.cat((skip4, h), dim=1))
+            if skip5.shape[2] == h.shape[2]:
+                h = self.u5(torch.cat((skip5, h), dim=1))
+            else:
+                self.crop_w, self.crop_h = h.shape[2] // 2, h.shape[3] // 2
+                h = self.u5(torch.cat((skip5[:,:,self.crop_w:-self.crop_w,self.crop_h:-self.crop_h],h),dim=1))
+        if self.skip[3]==0:
+            h = self.u4(h)
         else:
-            self.crop_w, self.crop_h = h.shape[2] // 2, h.shape[3] // 2
-            h = self.u4(torch.cat((skip4[:,:,self.crop_w:-self.crop_w,self.crop_h:-self.crop_h],h),dim=1))
+            # print(skip4.shape, h.shape)
+            if skip4.shape[2] == h.shape[2]:
+                h = self.u4(torch.cat((skip4, h), dim=1))
+            else:
+                self.crop_w, self.crop_h = h.shape[2] // 2, h.shape[3] // 2
+                h = self.u4(torch.cat((skip4[:,:,self.crop_w:-self.crop_w,self.crop_h:-self.crop_h],h),dim=1))
 
-        if skip3.shape[2] == h.shape[2]:
-            h = self.u3(torch.cat((skip3, h), dim=1))
+        if self.skip[2]==0:
+            h = self.u3(h)
         else:
-            self.crop_w, self.crop_h = h.shape[2] // 2, h.shape[3] // 2
-            h = self.u3(torch.cat((skip3[:,:,self.crop_w:-self.crop_w,self.crop_h:-self.crop_h],h),dim=1))
+            if skip3.shape[2] == h.shape[2]:
+                h = self.u3(torch.cat((skip3, h), dim=1))
+            else:
+                self.crop_w, self.crop_h = h.shape[2] // 2, h.shape[3] // 2
+                h = self.u3(torch.cat((skip3[:,:,self.crop_w:-self.crop_w,self.crop_h:-self.crop_h],h),dim=1))
 
-        if skip2.shape[2] == h.shape[2]:
-            h = self.u2(torch.cat((skip2, h), dim=1))
+        if self.skip[1]==0:
+            h = self.u2(h)
         else:
-            self.crop_w, self.crop_h = h.shape[2] // 2, h.shape[3] // 2
-            h = self.u2(torch.cat((skip2[:,:,self.crop_w:-self.crop_w,self.crop_h:-self.crop_h],h),dim=1))
+            if skip2.shape[2] == h.shape[2]:
+                h = self.u2(torch.cat((skip2, h), dim=1))
+            else:
+                self.crop_w, self.crop_h = h.shape[2] // 2, h.shape[3] // 2
+                h = self.u2(torch.cat((skip2[:,:,self.crop_w:-self.crop_w,self.crop_h:-self.crop_h],h),dim=1))
 
-        if skip1.shape[2] == h.shape[2]:
-            h = self.u1(torch.cat((skip1, h), dim=1))
+        if self.skip[0]==0:
+            h = self.u1(h)
         else:
-            self.crop_w, self.crop_h = h.shape[2] // 2, h.shape[3] // 2
-            h = self.u1(torch.cat((skip1[:,:,self.crop_w:-self.crop_w,self.crop_h:-self.crop_h],h),dim=1))
-
+            if skip1.shape[2] == h.shape[2]:
+                h = self.u1(torch.cat((skip1, h), dim=1))
+            else:
+                self.crop_w, self.crop_h = h.shape[2] // 2, h.shape[3] // 2
+                h = self.u1(torch.cat((skip1[:,:,self.crop_w:-self.crop_w,self.crop_h:-self.crop_h],h),dim=1))
         return torch.sigmoid(self.conv_out(h))
