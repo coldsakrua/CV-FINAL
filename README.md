@@ -4,6 +4,8 @@
 #### Begin
 We recommend you to use anaconda3.  
 ```shell
+conda create -n dip python=3.10.13
+conda activate dip
 cd CV-FINAL
 pip install -r requirements.txt
 ```
