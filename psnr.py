@@ -17,7 +17,7 @@ def cal_psnr(img1, img2, data_range):
    PIXEL_MAX = 1.
    return 20 * math.log10(PIXEL_MAX / math.sqrt(mse))
 
-if __name__ == '__main__':
-   img1 = Image.open("C:/Users/Rose Xue/Desktop/background.jpg")
-   img2 = Image.open("C:/Users/Rose Xue/Desktop/background2.jpg")
-   print(cal_psnr(np.array(img1)/255., np.array(img2)/255., 1))
+# if __name__ == '__main__':
+#    img1 = Image.open("C:/Users/Rose Xue/Desktop/background.jpg")
+#    img2 = Image.open("C:/Users/Rose Xue/Desktop/background2.jpg")
+#    print(cal_psnr(np.array(img1)/255., np.array(img2)/255., 1))
