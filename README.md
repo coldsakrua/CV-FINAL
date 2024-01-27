@@ -37,7 +37,11 @@ Run the commands in [record.md](record.md) to see the results with best settings
 
 ## Reference:
 [Deep Image Prior](https://arxiv.org/pdf/1711.10925.pdf) 
-[On Measuring and Controlling the Spectral Bias of the Deep Image Prior](https://arxiv.org/abs/2107.01125)
+
+[On Measuring and Controlling the Spectral Bias of the Deep Image Prior](https://arxiv.org/abs/2107.01125) 
+
 [Code](https://github.com/DmitryUlyanov/deep-image-prior) 
-[Untrained Neural Network Priors for Inverse Imaging Problems: A Survey](https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=9878048)  
+
+[Untrained Neural Network Priors for Inverse Imaging Problems: A Survey](https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=9878048) 
+
 [100-lines-code](https://github.com/MaximeVandegar/Papers-in-100-Lines-of-Code)  
