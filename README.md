@@ -6,9 +6,11 @@ Gongle Xue, Yifeng Xu, Yang Li
 
 Peking University
 
-</div>
 
 * This is a class project of the Computer Vision course in Peking University. 
+
+</div>
+
 
 ## Introduction
 This repository contains our implementation of the paper "Deep Image Prior" and some improvements inspired by the paper "On Measuring and Controlling the Spectral Bias of the Deep Image Prior". 
