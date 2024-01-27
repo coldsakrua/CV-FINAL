@@ -4,6 +4,19 @@ from PIL import Image
 import torch.nn as nn
 import torch
 
+def upsample1(image, w, h, order):
+    """
+    Upsampling by using interpolation
+
+    Args:
+        address (str): the address of image
+        w1, h1(int): target width and height
+        order (int): the degree of interpolation polynomial
+    """
+    image = image[0]
+    res = transform.resize(image, (w, h), order=order, anti_aliasing=True, mode='constant')
+    return res
+
 def upsample(image, times, order):
     """
     Upsampling by using interpolation
@@ -32,7 +45,7 @@ class downsample(nn.Module):
         if kernel_mode == 'box':
             kernel_size = factor
             res = torch.zeros(size=(input_channels, input_channels, kernel_size, kernel_size))
-            kernel = torch.zeros(size=(factor, factor))
+            kernel = torch.ones(size=(kernel_size, kernel_size)).float()
             kernel /= kernel_size*kernel_size
             
             
@@ -69,6 +82,7 @@ class downsample(nn.Module):
             # print(down.shape)
         else:
             down = nn.functional.conv2d(x, self.kernel, bias=None, stride=self.factor, padding=0)
+        # print(self.kernel)
         return down
     
 class smooth(nn.Module):
@@ -103,13 +117,13 @@ class sharp(nn.Module):
     def get_kernel(self):
         kernel_size = 3
         res = torch.zeros(size=(self.channels, self.channels, kernel_size, kernel_size))
-        kernel = torch.ones(size=(kernel_size, kernel_size))* -1.
+        kernel = torch.ones(size=(kernel_size, kernel_size))* -.1
         mid = int(kernel_size / 2)
-        kernel[mid, mid] = torch.tensor(9)
+        kernel[mid, mid] = torch.tensor(1.8)
         # kernel /= kernel.sum()
         # print(kernel)
         for i in range(self.channels):
-            res[i, i] = kernel
+            res[i, i] = kernel.float()
         return res
     
     def forward(self, x):

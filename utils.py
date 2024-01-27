@@ -8,6 +8,24 @@ import torch.nn.functional as F
 import math
 import random
 
+class TVLoss(nn.Module):
+    def __init__(self, weight: float=1, beta: float = 1) -> None:
+        """Total Variation Loss
+
+        Args:
+            weight (float): weight of TV loss
+        """
+        super().__init__()
+        self.weight = weight
+        self.beta = beta
+    
+    def forward(self, x):
+        batch_size, c, h, w = x.size()
+        tv_h = torch.abs(x[:,:,1:,:] - x[:,:,:-1,:]).sum()
+        tv_w = torch.abs(x[:,:,:,1:] - x[:,:,:,:-1]).sum()
+        res = self.weight * (tv_h + tv_w) / (batch_size * c * h * w)
+        return res ** (self.beta)
+
 
 def conv2(in1, in2, mode='same'):
     in1_torch = torch.tensor(in1).unsqueeze(0).unsqueeze(0).float()
@@ -210,10 +228,45 @@ def name2add(name):
     elif name == 'boat':
         address = './data/denoising/boat.png'
     elif name == 'baby':
-        address = './data/sr/baby.png'
-        t = 2
+        address = './data/sr/LRbicx4/baby.png'
+        mask_address = './data/sr/original/baby.png'
+        t = 4
     elif name == 'boat_sr':
         address = './data/sr/boat_sr.png'
+        t = 4
+    elif name == 'woman':
+        address = './data/sr/LRbicx4/woman.png'
+        mask_address = './data/sr/original/woman.png'
+        t = 4
+    elif name == 'man_sr':
+        address = './data/sr/man_sr.png'
+        t = 4
+    elif name == 'peppers_sr':
+        address = './data/sr/peppers.png'
+        t = 4
+    elif name == 'indian_sr':
+        address = './data/sr/indian.png'
+        t = 4
+    elif name == 'house_sr':
+        address = './data/sr/house.png'
+        t = 4
+    elif name == 'montage_sr':
+        address = './data/sr/montage.png'
+        t = 4
+    elif name == 'cv':
+        address = './data/sr/cv_sr.jpg'
+        t = 4
+    elif name == 'butterfly':
+        address = './data/sr/LRbicx4/butterfly.png'
+        mask_address = './data/sr/original/butterfly.png'
+        t = 4
+    elif name == 'bird':
+        address = './data/sr/LRbicx4/bird.png'
+        mask_address = './data/sr/original/bird.png'
+        t = 4
+    elif name == 'head':
+        address = './data/sr/LRbicx4/head.png'
+        mask_address = './data/sr/original/head.png'
         t = 4
     return address, mask_address, t    
 

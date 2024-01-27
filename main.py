@@ -15,6 +15,7 @@ from utils import *
 
 if __name__ == "__main__":
     device='cuda' if torch.cuda.is_available() else 'cpu'
+    torch.cuda.empty_cache()
     parser = argparse.ArgumentParser(description='parameters')
     parser.add_argument('--task', type=str, default='denoise')
     parser.add_argument('--name', type=str, default='f16')
@@ -25,7 +26,8 @@ if __name__ == "__main__":
     
     image = Image.open(address, 'r')
     w, h = image.size
-    image = image.resize((w - w % 32, h - h % 32), resample=Image.LANCZOS)
+    if args.task != 'super':
+        image = image.resize((w - w % 32, h - h % 32), resample=Image.LANCZOS)
     image = np.array(image)
     # print(image.shape)
     black = len(image.shape)==2
@@ -38,15 +40,23 @@ if __name__ == "__main__":
         in_ch = 3
     image = torch.from_numpy(image / 255.0).unsqueeze(0).float()
     auto_flag = args.auto
+    record = False
+    psnr_list = []
+    smooth_model = smooth(in_ch, device)
+    sharp_model = sharp(in_ch, device)
+    
     if args.task == 'denoise':
         channels = 32
+        ground_truth = Image.open(address, 'r').convert("RGB")
         # if args.name == 'snail':
         #     model = Model(image.shape[1], image.shape[2],input_channel=channels, channels=[128, 128, 128, 256, 256], skip=[4, 4, 4, 8, 8]).to(device)
         # else:
         #     model = Model(image.shape[1], image.shape[2],input_channel=channels,u_mode='gaussian').to(device)
-        model = Model(image.shape[1], image.shape[2],input_channel=channels,out_channels=in_ch, u_mode='gaussian').to(device)
+        # model = Model(image.shape[1], image.shape[2],input_channel=channels,out_channels=in_ch, u_mode='gaussian').to(device)
+        model = Model(image.shape[1], image.shape[2],input_channel=channels,out_channels=in_ch,skip=[8,8,4,4,4]).to(device)
         optimizer = optim.Adam(model.parameters(), lr=0.02)
-        loss_fn = torch.nn.MSELoss()
+        loss_fn1 = torch.nn.SmoothL1Loss()
+        loss_fn2 = TVLoss(weight=0.02)
         noise = torch.randn_like(image) * .1
         # if black:
         #     corrupted_img = image_with_noise.unsqueeze(0).transpose(2, 3).transpose(1, 2)
@@ -61,8 +71,7 @@ if __name__ == "__main__":
         corrupted_img = corrupted_img.to(device)
         res = torch.zeros_like(corrupted_img).to(device)
         thre = 50
-        smooth_model = smooth(in_ch, device)
-        sharp_model = sharp(in_ch, device)
+        
         auto_iter = 100
         
         coef_epsilon = 0.005
@@ -79,7 +88,7 @@ if __name__ == "__main__":
         corrupted_img = corrupted_img.to(device)
 
         if args.name == 'kate' or args.name == 'inpainting_img1' \
-            or args.name == 'inpainting_img2' or args.name == 'inpainting_img3' or args.name == 'inpainting_img4':
+            or args.name == 'inpainting_img2' or args.name == 'inpainting_img3' or args.name == 'inpainting_img4':#text
             channels = 32
             model = Model(image.shape[1], image.shape[2],input_channel=channels).to(device)
             optimizer = optim.Adam(model.parameters(), lr=0.01)
@@ -107,14 +116,20 @@ if __name__ == "__main__":
             optimizer = optim.Adam(model.parameters(), lr=0.1)
             z = torch.rand([1, channels, image.shape[1], image.shape[2]]) * 0.1
             z = z.to(device)
-
-
-
         
+        else:
+            channels = 32
+            model = Model(image.shape[1], image.shape[2],input_channel=channels).to(device)
+            optimizer = optim.Adam(model.parameters(), lr=0.01)
+            z = torch.rand([1, channels, image.shape[1], image.shape[2]]) * 0.1
+            z = z.to(device)
+            
+
+
     elif args.task=='super':
         loss_fn = torch.nn.MSELoss()
         channels = 32
-        model = Model(t * image.shape[1], t * image.shape[2], input_channel=channels).to(device)
+        model = Model(t * image.shape[1], t * image.shape[2], input_channel=channels,channels=[128, 128, 128, 256, 256], skip=[4, 4, 4, 8, 8]).to(device)
         # corrupted_img = (image + torch.randn_like(image) * .1).clip(0, 1)
         corrupted_img = image
         corrupted_img = corrupted_img.transpose(2, 3).transpose(1, 2).to(device)
@@ -131,24 +146,28 @@ if __name__ == "__main__":
     for epoch in tqdm(range(args.epoch)):
         if args.task == 'denoise':
             noise = torch.randn([1, channels, corrupted_img.shape[-2], corrupted_img.shape[-1]],device=device, requires_grad=True)
-            input = z + noise / 25
+            input = z + noise / 30
             # input = z
             img_pred = model(input)
-            if (epoch + 1) % 3 == 0:
-                # img_pred = sharp_model(img_pred)
-                img_pred = smooth_model(img_pred)  
+            # if (epoch + 1) % 3 == 0:
+            #     # img_pred = sharp_model(img_pred)
+            #     img_pred = smooth_model(img_pred)  
             if epoch >= args.epoch - thre :
                 res += img_pred / thre
                 # if epoch == args.epoch - 1:
                 #     res = sharp_model(res)
-            loss = loss_fn(img_pred, corrupted_img)  
+            # loss = loss_fn1(img_pred, corrupted_img) + loss_fn2(img_pred)  
+            loss = loss_fn1(img_pred, corrupted_img)
             if auto_flag:
                 pred1 = img_pred[0].cpu().transpose(0, 1).transpose(1, 2).data.numpy()
                 sharpness = cal_sharp(pred1)
                 blurness = cal_blur(pred1)
                 coef = (blurness / sharpness)
                 coef_list[epoch] = coef
-                
+            if record:
+                pred1=img_pred[0].cpu().transpose(0, 1).transpose(1, 2).data.numpy()
+                psnr = cal_psnr(pred1, np.array(ground_truth)/255., 1)
+                psnr_list.append(psnr)
             if auto_flag and epoch>2*auto_iter:
                 coef1 = np.mean(coef_list[epoch-2*auto_iter:epoch-auto_iter])
                 coef2 = np.mean(coef_list[epoch-auto_iter+1: epoch])
@@ -159,13 +178,13 @@ if __name__ == "__main__":
         
         elif args.task == 'super':
             noise = torch.randn(z.shape,device=device, requires_grad=True)/30
-            # input = z + noise
-            input = z
+            input = z + noise
+            # input = z
             img_pred = model(input)
-            # print(img_pred.shape)
+            if (epoch + 1) % 3 == 0:
+                # img_pred = sharp_model(img_pred)
+                img_pred = smooth_model(img_pred)  
             pred = downsampler(img_pred)
-            # print(pred.shape)
-            # print(corrupted_img.shape)
             loss = loss_fn(pred, corrupted_img)
         
         elif args.task == 'inpaint':
@@ -188,10 +207,10 @@ if __name__ == "__main__":
         corr_img=corrupted_img[0].cpu().transpose(0, 1).transpose(1, 2).data.numpy()
         if black:
             plt.imshow(corr_img[:,:,0])
-            plt.imsave(f'./Imgs/{args.name}_input{str(args.epoch)}.png', corr_img[:,:,0])
+            plt.imsave(f'./Imgs/{args.name}_input{str(epoch+1)}.png', corr_img[:,:,0])
         else:
             plt.imshow(corr_img)
-            plt.imsave(f'./Imgs/{args.name}_input{str(args.epoch)}.png', corr_img)
+            plt.imsave(f'./Imgs/{args.name}_input{str(epoch+1)}.png', corr_img)
         # plt.imshow(corr_img)
         plt.title('Input', fontsize=15)
         
@@ -218,9 +237,8 @@ if __name__ == "__main__":
 
         # calculate psnr
         prediction = Image.open(f'./Imgs/{args.name}_{args.task}{str(epoch+1)}.png', 'r').convert("RGB")
-        ground_truth = Image.open(f'./Imgs/{args.name}_gt.png', 'r').convert("RGB")
         psnr = cal_psnr(np.array(prediction), np.array(ground_truth), 255)
-    
+        
     elif args.task == 'super':
         plt.figure(figsize=(18, 4))
         plt.subplot(1, 3, 1)
@@ -245,7 +263,7 @@ if __name__ == "__main__":
 
         # calculate psnr
         downsampler = downsample(3, t, 'gaussian', device).to(device)
-        prediction = Image.open(f'./Imgs/{args.name}_{args.task}{str(args.epoch)}.png', 'r').convert("RGB")
+        prediction = Image.open(f'./Imgs/{args.name}_{args.task}{str(epoch+1)}.png', 'r').convert("RGB")
         prediction = torch.from_numpy(np.array(prediction) / 255.0).unsqueeze(0).float()
         prediction = prediction.transpose(2, 3).transpose(1, 2).to(device)
         prediction = downsampler(prediction)
@@ -256,7 +274,7 @@ if __name__ == "__main__":
     plt.figure(figsize=(18, 4))
     # save loss curve and psnr
     if auto_flag:
-        x_ = [i for i in range(1, epoch + 1)]
+        x_ = [i for i in range(1, epoch + 2)]
     else:
         x_ = [i for i in range(1, args.epoch + 1)]
     plt.plot(x_, loss_)
@@ -265,7 +283,12 @@ if __name__ == "__main__":
     if not os.path.exists('./loss_curve'):
         os.makedirs('./loss_curve')
     plt.savefig('./loss_curve/{}_{}{}_loss.png'.format(args.name, args.task, epoch+1))
-
+    if record:
+            plt.clf()
+            plt.plot(x_,psnr_list)
+            plt.title('pnsr')
+            plt.savefig('./loss_curve/{}_{}_psnr'.format(args.name,epoch+1))
+    
     print(f"psnr = {psnr}")
 
     # python main.py --task=denoise --name=f16 --epoch=3000
