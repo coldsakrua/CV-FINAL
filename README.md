@@ -1,9 +1,10 @@
 # CV FINAL PROJECT  
 * This is a class project of the Computer Vision course in Peking University.
-### Gongle Xue, Yifeng Xu, Yang Li
+### Gongle Xue, Yifeng Xu, Yang Li  
 ### Theme:Deep Image Prior
 #### Introduction
-This repository contains our implementation of the paper "Deep Image Prior" and some improvements inspired by the paper "On Measuring and Controlling the Spectral Bias of the Deep Image Prior".
+This repository contains our implementation of the paper "Deep Image Prior" and some improvements inspired by the paper "On Measuring and Controlling the Spectral Bias of the Deep Image Prior". 
+
 We propose to solve image reconstruction tasks including denoising, inpainting and super-resolution via using the structure of network as image prior.
 
 #### Get Started
@@ -17,7 +18,8 @@ pip install -r requirements.txt
 ```
 
 #### Prepare your dataset
-Download our dataset in the repository directory from [](). Our dataset consists of the testing images in the paper "Deep Image Prior" and our own images(the names ofen begin with "our_imgs").
+Download our dataset in the repository directory from [](). Our dataset consists of the testing images in the paper "Deep Image Prior" and our own images(the names ofen begin with "our_imgs"). 
+
 If you want to apply our method to other images, just add their address to the function "name2add()" in [utils.py](utils.py). For denoising tasks, the "mask_address" is None; for inpainting tasks, the "mask_address" is the address of image mask; for super-resolution tasks, the "mask_address" is the address of original high-resolution image(if exits).
 
 #### Evalutation
