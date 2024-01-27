@@ -18,9 +18,8 @@ This repository contains our implementation of the paper "Deep Image Prior" and 
 We propose to solve image reconstruction tasks including denoising, inpainting and super-resolution via using the structure of network as image prior.
 
 ## Structure
-The brief structure of this project is shown bellow. 
-
-    ```
+The brief structure of this project is shown bellow: 
+  ```
     ./
     ├──.gitignore
     ├──__pycache__
@@ -68,21 +67,20 @@ The brief structure of this project is shown bellow.
     ├──record.md
     ├──requirements.txt
     └──utils.py
-    ```
+  ```
 
 ## Get Started
 ### Prepare your python environment
 We recommend you to use anaconda3.
-
-    ```bash
-    conda create -n dip python=3.10.13
-    conda activate dip
-    pip install torch==1.13.1+cu117 torchvision==0.14.1+cu117 torchaudio==0.13.1 --extra-index-url https://download.pytorch.org/whl/cu117
-    pip install -r requirements.txt
-    ```
+  ```bash
+  conda create -n dip python=3.10.13
+  conda activate dip
+  pip install torch==1.13.1+cu117 torchvision==0.14.1+cu117 torchaudio==0.13.1 --extra-index-url https://download.pytorch.org/whl/cu117
+  pip install -r requirements.txt
+  ```
 
 ### Prepare your dataset
-Download our dataset in the project directory from []() if there is no directory named "data". Our dataset consists of the testing images in the paper "Deep Image Prior" and our own images(the names often begin with "our_imgs"). 
+Download our dataset in the project directory from []() if there is no folder named "data". Our dataset consists of the testing images in the paper "Deep Image Prior" and our own images(the names often begin with "our_imgs"). 
 
 If you want to apply our method to other images, just add their address to the function "name2add()" in [utils.py](utils.py). For denoising tasks, the "mask_address" is None; for inpainting tasks, the "mask_address" is the address of image mask; for super-resolution tasks, the "mask_address" is the address of original high-resolution image(if exits).
 
