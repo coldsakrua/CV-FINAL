@@ -4,7 +4,7 @@ from PIL import Image
 import torch.nn as nn
 import torch
 
-def upsample(address, times, order):
+def upsample(image, times, order):
     """
     Upsampling by using interpolation
 
@@ -13,9 +13,8 @@ def upsample(address, times, order):
         times (int): magnification factor
         order (int): the degree of interpolation polynomial
     """
-    image = Image.open(address,'r')
-    image = np.array(image)
-    w, h =image.shape[0], image.shape[1]
+    w, h =image.shape[1], image.shape[2]
+    image = image[0]
     res = transform.resize(image, (times * w, times * h), order=order, anti_aliasing=True, mode='constant')
     return res
 
@@ -66,7 +65,7 @@ class downsample(nn.Module):
     def forward(self, x):
         # print(type(x), type(self.kernel))
         if self.kernel_mode == 'gaussian':
-            down = nn.functional.conv2d(x, self.kernel, bias=None, stride=self.factor, padding=2)
+            down = nn.functional.conv2d(x, self.kernel, bias=None, stride=self.factor, padding=int(self.factor/2))
             # print(down.shape)
         else:
             down = nn.functional.conv2d(x, self.kernel, bias=None, stride=self.factor, padding=0)
@@ -91,7 +90,7 @@ class smooth(nn.Module):
         return res
     
     def forward(self, x):
-        smoothness = nn.functional.conv2d(x, self.kernel, stride=1, padding=1)
+        smoothness = nn.functional.conv2d(x, self.kernel, stride=1, padding=int(self.kernel.shape[-1]/2))
         return smoothness
     
     
@@ -104,9 +103,9 @@ class sharp(nn.Module):
     def get_kernel(self):
         kernel_size = 3
         res = torch.zeros(size=(self.channels, self.channels, kernel_size, kernel_size))
-        kernel = torch.ones(size=(kernel_size, kernel_size))* -0.1
+        kernel = torch.ones(size=(kernel_size, kernel_size))* -1.
         mid = int(kernel_size / 2)
-        kernel[mid, mid] = torch.tensor(1.8)
+        kernel[mid, mid] = torch.tensor(9)
         # kernel /= kernel.sum()
         # print(kernel)
         for i in range(self.channels):

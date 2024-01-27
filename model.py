@@ -1,8 +1,42 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
+def get_kernel(kernel_width=5, sigma=0.5):
 
+    kernel = torch.zeros([kernel_width, kernel_width])
+    center = (kernel_width + 1.)/2.
+    sigma_sq =  sigma * sigma
 
+    for i in range(1, kernel.shape[0] + 1):
+        for j in range(1, kernel.shape[1] + 1):
+            di = (i - center)/2.
+            dj = (j - center)/2.
+            kernel[i - 1][j - 1] = torch.exp(torch.tensor(-(di * di + dj * dj)/(2 * sigma_sq)))
+    kernel /= kernel.sum()
+
+    return kernel
+
+class gaussian(nn.Module):
+    def __init__(self, n_planes,  kernel_width=5, sigma=0.5):
+        super(gaussian, self).__init__()
+        self.n_planes = n_planes
+        self.kernel = get_kernel(kernel_width=kernel_width,sigma=sigma)
+
+        convolver = nn.ConvTranspose2d(n_planes, n_planes, kernel_size=kernel_width, stride=2, padding=int(kernel_width/2), output_padding=1, groups=n_planes)
+        convolver.weight.data[:] = 0
+        convolver.bias.data[:] = 0
+        convolver.weight.requires_grad = False
+        convolver.bias.requires_grad = False
+        for i in range(n_planes):
+            convolver.weight.data[i, 0] = self.kernel
+        self.upsampler = convolver
+
+    def forward(self, x):
+        
+        x = self.upsampler(x)
+
+        return x
 
 class D(nn.Module):
     """
@@ -12,9 +46,9 @@ class D(nn.Module):
         super(D, self).__init__()
 
         self.model = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size, stride=2, padding=1, bias=True),  # Downsample
+            nn.Conv2d(in_channels, out_channels, kernel_size, stride=2, padding=1, bias=True, padding_mode='reflect'),  # Downsample
             nn.BatchNorm2d(out_channels), nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(out_channels, out_channels, kernel_size, stride=1, padding=1, bias=True),
+            nn.Conv2d(out_channels, out_channels, kernel_size, stride=1, padding=1, bias=True, padding_mode='reflect'),
             nn.BatchNorm2d(out_channels), nn.LeakyReLU(0.2, inplace=True))
 
     def forward(self, x):
@@ -27,7 +61,7 @@ class S(nn.Module):
         super(S, self).__init__()
 
         self.model = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size, 1, padding=0, bias=True),
+            nn.Conv2d(in_channels, out_channels, kernel_size, 1, padding=0, bias=True, padding_mode='reflect'),
             nn.BatchNorm2d(out_channels), nn.LeakyReLU(0.2, inplace=True))
 
     def forward(self, x):
@@ -41,22 +75,35 @@ class U(nn.Module):
 
     def __init__(self, in_channels, out_channels, kernel_size, mode='bilinear'):
         super(U, self).__init__()
-
-        self.model = nn.Sequential(nn.BatchNorm2d(in_channels),
-                                   nn.Conv2d(in_channels, out_channels, kernel_size, 1, padding=1,
-                                             bias=True),
-                                   nn.BatchNorm2d(out_channels), nn.LeakyReLU(0.2, inplace=True),
-                                   nn.Conv2d(out_channels, out_channels, 1, 1, padding=0, bias=True),
-                                   nn.BatchNorm2d(out_channels), nn.LeakyReLU(0.2, inplace=True),
-                                   nn.Upsample(scale_factor=2, mode=mode))
+        if mode =='gaussian':
+            self.model = nn.Sequential(nn.BatchNorm2d(in_channels),
+                                    nn.Conv2d(in_channels, out_channels, kernel_size, 1, padding=1,
+                                                bias=True),
+                                    nn.BatchNorm2d(out_channels), nn.LeakyReLU(0.2, inplace=True),
+                                    nn.Conv2d(out_channels, out_channels, 1, 1, padding=0, bias=True),
+                                    nn.BatchNorm2d(out_channels), nn.LeakyReLU(0.2, inplace=True),
+                                    #    nn.Upsample(scale_factor=2, mode=mode)
+                                        gaussian(out_channels)
+                                    )
+        else:
+            self.model = nn.Sequential(nn.BatchNorm2d(in_channels),
+                                    nn.Conv2d(in_channels, out_channels, kernel_size, 1, padding=1,
+                                                bias=True),
+                                    nn.BatchNorm2d(out_channels), nn.LeakyReLU(0.2, inplace=True),
+                                    nn.Conv2d(out_channels, out_channels, 1, 1, padding=0, bias=True),
+                                    nn.BatchNorm2d(out_channels), nn.LeakyReLU(0.2, inplace=True),
+                                    nn.Upsample(scale_factor=2, mode=mode)
+                                        # gaussian(out_channels, kernel_size)
+                                    )
 
     def forward(self, x):
         return self.model(x)
 
 
+
 class Model(nn.Module):
 
-    def __init__(self, w, h, input_channel=3, u_mode='bilinear', channels=[128, 128, 128, 128, 128], skip=[4, 4, 4, 4, 4]):
+    def __init__(self, w, h, input_channel=3, out_channels = 3, u_mode='bilinear', channels=[128, 128, 128, 128, 128], skip=[4, 4, 4, 4, 4]):
         super(Model, self).__init__()
         self.skip = skip
         self.d1 = D(input_channel, channels[0], 3)
@@ -77,7 +124,7 @@ class Model(nn.Module):
         self.s4 = S(channels[3], skip[3], 1)
         self.s5 = S(channels[4], skip[4], 1)
 
-        self.conv_out = nn.Conv2d(channels[0], 3, 1, stride=1, padding=0, bias=True)
+        self.conv_out = nn.Conv2d(channels[0], out_channels, 1, stride=1, padding=0, bias=True)
 
     def forward(self, x):
         h = self.d1(x)

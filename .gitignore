@@ -2,3 +2,4 @@ deep
 *.ipynb
 __pycache__
 .idea
+test.py
