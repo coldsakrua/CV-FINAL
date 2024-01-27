@@ -27,7 +27,7 @@ class U(nn.Module):
         super(U, self).__init__()
 
         self.model = nn.Sequential(nn.BatchNorm2d(in_channels),
-                                   nn.Conv2d(in_channels, out_channels, kernel_size, 1, padding=1,
+                                   nn.Conv2d(in_channels, out_channels, kernel_size, 1, padding=2,
                                              bias=True),
                                    nn.BatchNorm2d(out_channels), nn.LeakyReLU(0.2, inplace=True),
                                    nn.Conv2d(out_channels, out_channels, 1, 1, padding=0, bias=True),
@@ -50,12 +50,12 @@ class Model_for_inpainting(nn.Module):
         self.d5 = D(128, 128, 3)
         self.d6 = D(128, 128, 3)
 
-        self.u1 = U(32, 16, 3, mode=u_mode)
-        self.u2 = U(64, 32, 3, mode=u_mode)
-        self.u3 = U(128, 64, 3, mode=u_mode)
-        self.u4 = U(128, 128, 3, mode=u_mode)
-        self.u5 = U(128, 128, 3, mode=u_mode)
-        self.u6 = U(128, 128, 3, mode=u_mode)
+        self.u1 = U(32, 16, 5, mode=u_mode)
+        self.u2 = U(64, 32, 5, mode=u_mode)
+        self.u3 = U(128, 64, 5, mode=u_mode)
+        self.u4 = U(128, 128, 5, mode=u_mode)
+        self.u5 = U(128, 128, 5, mode=u_mode)
+        self.u6 = U(128, 128, 5, mode=u_mode)
 
 
         self.conv_out = nn.Conv2d(16, 3, 1, stride=1, padding=0, bias=True)
