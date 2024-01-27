@@ -22,6 +22,10 @@ The brief structure of this project is shown bellow.
 
     ```
     ./
+    ├──.gitignore
+    ├──__pycache__
+    |  ├──...
+    |
     ├──data                             # input images
     |  ├──denoising
     |  |  ├──barbara.png
