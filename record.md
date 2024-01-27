@@ -1,6 +1,6 @@
 # Best Results
 
-## 1. Denoise
+## 1. Denoising
 
 ### 1.1 Manually Stopped
 - python main.py --task=denoise --name=f16 --epoch=3000
