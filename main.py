@@ -27,6 +27,7 @@ if __name__ == "__main__":
     image = Image.open(address, 'r')
     w, h = image.size
     if args.task != 'super':
+        image1 = image.resize((w - w % 32, h - h % 32), resample=Image.LANCZOS)
         image = image.resize((w - w % 32, h - h % 32), resample=Image.LANCZOS)
     image = np.array(image)
     # print(image.shape)
@@ -47,13 +48,13 @@ if __name__ == "__main__":
     
     if args.task == 'denoise':
         channels = 32
-        ground_truth = Image.open(address, 'r').convert("RGB")
+        ground_truth = image
         # if args.name == 'snail':
         #     model = Model(image.shape[1], image.shape[2],input_channel=channels, channels=[128, 128, 128, 256, 256], skip=[4, 4, 4, 8, 8]).to(device)
         # else:
         #     model = Model(image.shape[1], image.shape[2],input_channel=channels,u_mode='gaussian').to(device)
-        # model = Model(image.shape[1], image.shape[2],input_channel=channels,out_channels=in_ch, u_mode='gaussian').to(device)
-        model = Model(image.shape[1], image.shape[2],input_channel=channels,out_channels=in_ch,skip=[8,8,4,4,4]).to(device)
+        model = Model(image.shape[1], image.shape[2],input_channel=channels,out_channels=in_ch, u_mode='gaussian').to(device)
+        # model = Model(image.shape[1], image.shape[2],input_channel=channels,out_channels=in_ch,skip=[8,8,4,4,4]).to(device)
         optimizer = optim.Adam(model.parameters(), lr=0.02)
         loss_fn1 = torch.nn.SmoothL1Loss()
         loss_fn2 = TVLoss(weight=0.02)
@@ -157,7 +158,7 @@ if __name__ == "__main__":
                 # if epoch == args.epoch - 1:
                 #     res = sharp_model(res)
             # loss = loss_fn1(img_pred, corrupted_img) + loss_fn2(img_pred)  
-            loss = loss_fn1(img_pred, corrupted_img)
+            # loss = loss_fn1(img_pred, corrupted_img)
             if auto_flag:
                 pred1 = img_pred[0].cpu().transpose(0, 1).transpose(1, 2).data.numpy()
                 sharpness = cal_sharp(pred1)
@@ -237,7 +238,13 @@ if __name__ == "__main__":
 
         # calculate psnr
         prediction = Image.open(f'./Imgs/{args.name}_{args.task}{str(epoch+1)}.png', 'r').convert("RGB")
-        psnr = cal_psnr(np.array(prediction), np.array(ground_truth), 255)
+        prediction = np.array(prediction)
+        if prediction.max()<=1:
+            prediction = prediction * 255
+        gt = np.array(ground_truth)[0]
+        if gt.max()<=1:
+            gt = gt * 255
+        psnr = cal_psnr(prediction, gt, 255)
         
     elif args.task == 'super':
         plt.figure(figsize=(18, 4))
