@@ -26,8 +26,4 @@
 - python main.py --task=inpaint --name=inpainting_img2 --epoch=4000
 
 ## 3. Super Resolution
-
-### 3.1 manually stopped
 - python main.py --task=super --name=zebra --epoch=2000
-
-### 3.2 automatically stopped
