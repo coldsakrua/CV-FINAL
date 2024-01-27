@@ -7,7 +7,7 @@ Gongle Xue, Yifeng Xu, Yang Li
 Peking University
 
 
-* This is a class project of the Computer Vision course in Peking University. 
+\* This is a class project of the Computer Vision course in Peking University. 
 
 </div>
 
