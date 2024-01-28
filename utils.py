@@ -234,6 +234,12 @@ def name2add(name):
     elif name == 'boat_sr':
         address = './data/sr/boat_sr.png'
         t = 4
+    elif name == 'couple_sr':
+        address = './data/sr/couple_sr.png'
+        t = 4
+    elif name == 'barbara_sr':
+        address = './data/sr/barbara_sr.png'
+        t = 4
     elif name == 'woman':
         address = './data/sr/LRbicx4/woman.png'
         mask_address = './data/sr/original/woman.png'
@@ -242,18 +248,27 @@ def name2add(name):
         address = './data/sr/man_sr.png'
         t = 4
     elif name == 'peppers_sr':
-        address = './data/sr/peppers.png'
+        address = './data/sr/peppers_sr.png'
         t = 4
     elif name == 'indian_sr':
-        address = './data/sr/indian.png'
+        address = './data/sr/indian_sr.png'
         t = 4
     elif name == 'house_sr':
-        address = './data/sr/house.png'
+        address = './data/sr/house_sr.png'
         t = 4
     elif name == 'montage_sr':
-        address = './data/sr/montage.png'
+        address = './data/sr/montage_sr.png'
         t = 4
-    elif name == 'cv':
+    elif name == 'lena_sr':
+        address = './data/sr/lena_sr.png'
+        t = 4
+    elif name == 'fingerprint_sr':
+        address = './data/sr/fingerprint_sr.png'
+        t = 4    
+    elif name == 'hill_sr':
+        address = './data/sr/hill_sr.png'
+        t = 4
+    elif name == 'cv_sr':
         address = './data/sr/cv_sr.jpg'
         t = 4
     elif name == 'butterfly':
@@ -264,6 +279,9 @@ def name2add(name):
         address = './data/sr/LRbicx4/bird.png'
         mask_address = './data/sr/original/bird.png'
         t = 4
+    elif name == 'couple_sr':
+        address = './data/sr/couple_sr.png'
+        t = 4
     elif name == 'head':
         address = './data/sr/LRbicx4/head.png'
         mask_address = './data/sr/original/head.png'
@@ -272,6 +290,7 @@ def name2add(name):
 
 
 def pepper_and_salt(img,percentage):
+    
     num=int(percentage*img.shape[0]*img.shape[1])
     random.randint(0, img.shape[0])
     img2=img.copy()

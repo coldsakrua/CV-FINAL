@@ -29,6 +29,9 @@ if __name__ == "__main__":
     if args.task != 'super':
         image1 = image.resize((w - w % 32, h - h % 32), resample=Image.LANCZOS)
         image = image.resize((w - w % 32, h - h % 32), resample=Image.LANCZOS)
+    # else:
+    #     image = image.resize((w - w % 32, h - h % 32), resample=Image.LANCZOS)
+    w, h = image.size
     image = np.array(image)
     # print(image.shape)
     black = len(image.shape)==2
@@ -128,11 +131,16 @@ if __name__ == "__main__":
 
 
     elif args.task=='super':
+        if args.name in ['barbara_sr','boat_sr','couple_sr', 'fingerprint_sr','hill_sr','house_sr' ,'indian_sr','lena_sr','man_sr','montage_sr','peppers_sr']:
+            ground_truth = Image.open('./data/sr/{}.png'.format(args.name[:-3]),'r')
+            ground_truth = np.array(ground_truth)
+            ground_truth = np.stack((ground_truth,)*3,axis=-1)
         loss_fn = torch.nn.MSELoss()
+        loss_fn1 = TVLoss(weight=0.01)
         channels = 32
         model = Model(t * image.shape[1], t * image.shape[2], input_channel=channels,channels=[128, 128, 128, 256, 256], skip=[4, 4, 4, 8, 8]).to(device)
         # corrupted_img = (image + torch.randn_like(image) * .1).clip(0, 1)
-        corrupted_img = image
+        corrupted_img = image[:,:,:,:3]
         corrupted_img = corrupted_img.transpose(2, 3).transpose(1, 2).to(device)
         z = torch.rand([1, channels, t * image.shape[1], t * image.shape[2]]) * 0.1
         z = z.to(device)
@@ -150,9 +158,9 @@ if __name__ == "__main__":
             input = z + noise / 30
             # input = z
             img_pred = model(input)
-            # if (epoch + 1) % 3 == 0:
-            #     # img_pred = sharp_model(img_pred)
-            #     img_pred = smooth_model(img_pred)  
+            if (epoch + 1) % 3 == 0:
+                # img_pred = sharp_model(img_pred)
+                img_pred = smooth_model(img_pred)  
             if epoch >= args.epoch - thre :
                 res += img_pred / thre
                 # if epoch == args.epoch - 1:
@@ -179,14 +187,14 @@ if __name__ == "__main__":
         
         elif args.task == 'super':
             noise = torch.randn(z.shape,device=device, requires_grad=True)/30
-            input = z + noise
-            # input = z
+            # input = z + noise
+            input = z
             img_pred = model(input)
-            if (epoch + 1) % 3 == 0:
-                # img_pred = sharp_model(img_pred)
-                img_pred = smooth_model(img_pred)  
+            # if (epoch + 1) % 3 == 0:
+            #     # img_pred = sharp_model(img_pred)
+            #     img_pred = smooth_model(img_pred)  
             pred = downsampler(img_pred)
-            loss = loss_fn(pred, corrupted_img)
+            loss = loss_fn(pred, corrupted_img)+loss_fn1(img_pred)
         
         elif args.task == 'inpaint':
             if args.name == 'library':
@@ -248,11 +256,16 @@ if __name__ == "__main__":
         
     elif args.task == 'super':
         plt.figure(figsize=(18, 4))
-        plt.subplot(1, 3, 1)
-        interpolation1 = upsample(image, t, 1)
-        plt.imshow(interpolation1)
-        plt.title('order=1')
-        
+        if args.name in ['barbara_sr','boat_sr','couple_sr', 'fingerprint_sr','hill_sr','house_sr' ,'indian_sr','lena_sr','man_sr','montage_sr','peppers_sr']:
+            plt.subplot(1, 3, 1)
+            plt.imshow(ground_truth)
+            plt.title('gt')
+        else:
+            plt.subplot(1, 3, 1)
+            interpolation1 = upsample(image, t, 1)
+            plt.imshow(interpolation1)
+            plt.title('order=1')
+            
         plt.subplot(1, 3, 2)
         interpolation1 = upsample(image, t, 4)
         plt.imshow(interpolation1)
@@ -263,20 +276,22 @@ if __name__ == "__main__":
         plt.imshow(pred)
         plt.imsave(f'./Imgs/{args.name}_{args.task}{str(epoch+1)}.png', pred)
         plt.title('Prediction', fontsize=15)
+        psnr = cal_psnr(pred, ground_truth/255., 1)
+        
         plt.savefig(f'Imgs/{args.name}.png')
         origin = image[0].data.numpy()
         plt.imsave(f'./Imgs/{args.name}_gt.png', origin)
 
 
         # calculate psnr
-        downsampler = downsample(3, t, 'gaussian', device).to(device)
-        prediction = Image.open(f'./Imgs/{args.name}_{args.task}{str(epoch+1)}.png', 'r').convert("RGB")
-        prediction = torch.from_numpy(np.array(prediction) / 255.0).unsqueeze(0).float()
-        prediction = prediction.transpose(2, 3).transpose(1, 2).to(device)
-        prediction = downsampler(prediction)
-        prediction = prediction[0].cpu().transpose(0, 1).transpose(1, 2).data.numpy()
-        ground_truth = np.array(Image.open(f'./Imgs/{args.name}_gt.png', 'r').convert('RGB')) / 255.
-        psnr = cal_psnr(prediction, ground_truth, 1)
+        # downsampler = downsample(3, t, 'gaussian', device).to(device)
+        # prediction = Image.open(f'./Imgs/{args.name}_{args.task}{str(epoch+1)}.png', 'r').convert("RGB")
+        # prediction = torch.from_numpy(np.array(prediction) / 255.0).unsqueeze(0).float()
+        # prediction = prediction.transpose(2, 3).transpose(1, 2).to(device)
+        # prediction = downsampler(prediction)
+        # prediction = prediction[0].cpu().transpose(0, 1).transpose(1, 2).data.numpy()
+        # ground_truth = np.array(Image.open(f'./Imgs/{args.name}_gt.png', 'r').convert('RGB')) / 255.
+        # psnr = cal_psnr(prediction, ground_truth, 1)
     
     plt.figure(figsize=(18, 4))
     # save loss curve and psnr
